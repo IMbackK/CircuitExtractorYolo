@@ -6,4 +6,4 @@
 
 int popplerEnumToCvFormat(int format);
 
-std::vector<cv::Mat> getMatsFromDocument(poppler::document* document);
+std::vector<cv::Mat> getMatsFromDocument(poppler::document* document, const cv::Size& size);

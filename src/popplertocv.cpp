@@ -33,9 +33,10 @@ int popplerEnumToCvFormat(int format)
 	return cvFormat;
 }
 
-std::vector<cv::Mat> getMatsFromDocument(poppler::document* document)
+std::vector<cv::Mat> getMatsFromDocument(poppler::document* document, const cv::Size& size)
 {
 	poppler::page_renderer renderer;
+	renderer.set_render_hint(poppler::page_renderer::antialiasing, true);
 
 	int pagesCount = document->pages();
 
@@ -44,12 +45,14 @@ std::vector<cv::Mat> getMatsFromDocument(poppler::document* document)
 	for(int i = 0; i < pagesCount; ++i)
 	{
 		poppler::page* page = document->create_page(i);
-		poppler::image image = renderer.render_page(page, 512, 512);
+		poppler::rectf pagesize = page->page_rect();
+		std::cout<<"rect: "<<pagesize.width()<<'x'<<pagesize.height()<<'\n';
+		poppler::image image = renderer.render_page(page, size.width/4, size.height/4);
 		Log(Log::INFO)<<image.height()<<" format "<<image.format();
-
 		cv::Mat cvBuffer(image.height(), image.width(), popplerEnumToCvFormat(image.format()), image.data(), image.bytes_per_row());
 		if(image.format() == poppler::image::format_rgb24 || image.format() == poppler::image::format_argb32)
 			cvtColor(cvBuffer, cvBuffer, cv::COLOR_RGB2BGR);
+		cv::resize(cvBuffer, cvBuffer, size, 0, 0, cv::INTER_LINEAR);
 		output.push_back(cvBuffer);
 	}
 	return output;
