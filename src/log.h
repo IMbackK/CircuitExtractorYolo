@@ -27,6 +27,7 @@ public:
 
 	enum Level
 	{
+		SUPERDEBUG,
 		DEBUG,
 		INFO,
 		WARN,

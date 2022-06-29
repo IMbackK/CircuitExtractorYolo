@@ -43,6 +43,7 @@ std::string Log::getLabel(Level level)
 	std::string label;
 	switch(level)
 	{
+		case SUPERDEBUG:
 		case DEBUG:
 			label = "DEBUG";
 			break;
