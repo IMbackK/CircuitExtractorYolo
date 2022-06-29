@@ -23,7 +23,6 @@ Yolo5::Yolo5(const std::string& fileName, size_t numCassesI):
 numClasses(numCassesI)
 {
 	dimensions = 5+numClasses;
-	std::cout<<"dimensions "<<dimensions;
 	net = cv::dnn::readNet(fileName);
 	net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
 	net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
@@ -33,8 +32,6 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 {
 	cv::Mat blob;
 	cv::dnn::blobFromImage(image, blob, 1.0/255, cv::Size(TRAIN_SIZE_X, TRAIN_SIZE_Y), cv::Scalar(), true, true);
-
-	printMatInfo(blob, "blob");
 
 	net.setInput(blob);
 

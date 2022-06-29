@@ -46,9 +46,8 @@ std::vector<cv::Mat> getMatsFromDocument(poppler::document* document, const cv::
 	{
 		poppler::page* page = document->create_page(i);
 		poppler::rectf pagesize = page->page_rect();
-		std::cout<<"rect: "<<pagesize.width()<<'x'<<pagesize.height()<<'\n';
+		Log(Log::DEBUG)<<"Pagesize: "<<pagesize.width()<<'x'<<pagesize.height()<<'\n';
 		poppler::image image = renderer.render_page(page, size.width/4, size.height/4);
-		Log(Log::INFO)<<image.height()<<" format "<<image.format();
 		cv::Mat cvBuffer(image.height(), image.width(), popplerEnumToCvFormat(image.format()), image.data(), image.bytes_per_row());
 		if(image.format() == poppler::image::format_rgb24 || image.format() == poppler::image::format_argb32)
 			cvtColor(cvBuffer, cvBuffer, cv::COLOR_RGB2BGR);
