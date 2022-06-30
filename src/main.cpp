@@ -3,6 +3,7 @@
 #include <opencv2/imgproc.hpp>
 #include <poppler-document.h>
 #include <poppler-image.h>
+#include <poppler-global.h>
 #include <filesystem>
 #include <vector>
 #include <future>
@@ -10,6 +11,7 @@
 #include "log.h"
 #include "popplertocv.h"
 #include "yolo.h"
+
 
 void printUsage(int argc, char** argv)
 {
@@ -108,6 +110,7 @@ public:
 	std::string keywords;
 	std::string basename;
 	std::string author;
+	std::vector<cv::Mat> pages;
 	std::vector<Circut> circuts;
 
 	void print(Log::Level level) const
@@ -149,7 +152,7 @@ public:
 	}
 };
 
-Document getCircutDocument(const std::string& fileName, Yolo5* yolo)
+Document loadDocument(const std::string& fileName)
 {
 	poppler::document* popdocument = poppler::document::load_from_file(fileName);
 
@@ -171,20 +174,9 @@ Document getCircutDocument(const std::string& fileName, Yolo5* yolo)
 	document.title = popdocument->get_title().to_latin1();
 	document.author = popdocument->get_creator().to_latin1();
 	document.basename = std::filesystem::path(fileName).filename();
-	document.print(Log::INFO);
+	document.print(Log::EXTRA);
+	document.pages = getMatsFromDocument(popdocument, cv::Size(1280, 1280));
 
-	std::vector<cv::Mat> pageImages = getMatsFromDocument(popdocument, cv::Size(1280, 1280));
-	std::vector<float> probs;
-	std::vector<cv::Mat> circutImages = getCircutImages(pageImages, yolo, &probs);
-
-	for(size_t i = 0; i < circutImages.size(); ++i)
-	{
-		const cv::Mat& image = circutImages[i];
-		Circut circut;
-		circut.image = image;
-		circut.prob = probs[i];
-		document.circuts.push_back(circut);
-	}
 	return document;
 }
 
@@ -233,6 +225,30 @@ void cleanDocuments(std::vector<Document>& documents)
 	}
 }
 
+bool processDoucment(Document& document, Yolo5* circutYolo, Yolo5* elementYolo)
+{
+	std::vector<float> probs;
+	std::vector<cv::Mat> circutImages = getCircutImages(document.pages, circutYolo, &probs);
+
+	for(size_t i = 0; i < circutImages.size(); ++i)
+	{
+		const cv::Mat& image = circutImages[i];
+		Circut circut;
+		circut.image = image;
+		circut.prob = probs[i];
+		document.circuts.push_back(circut);
+	}
+
+	for(Circut& circut : document.circuts)
+	{
+		getCircutElements(circut, elementYolo);
+	}
+	bool ret = document.saveCircutImages("./circuts");
+	if(!ret)
+		Log(Log::WARN)<<"Error saving files for "<<document.basename;
+	return ret;
+}
+
 std::string getNextString(int argc, char** argv, int& argvCounter)
 {
 	while(argvCounter < argc)
@@ -247,17 +263,10 @@ std::string getNextString(int argc, char** argv, int& argvCounter)
 	return "";
 }
 
-bool processDoucment(const std::string& documentFileName, Yolo5 circutYolo, Yolo5 elementYolo)
+void dropMessage(const std::string& message, void* userdata)
 {
-	Document document = getCircutDocument(documentFileName, &circutYolo);
-	for(Circut& circut : document.circuts)
-	{
-		getCircutElements(circut, &circutYolo);
-	}
-	bool ret = document.saveCircutImages("./circuts");
-	if(!ret)
-		Log(Log::WARN)<<"Error saving files for "<<document.basename;
-	return ret;
+	(void)message;
+	(void)userdata;
 }
 
 int main(int argc, char** argv)
@@ -268,6 +277,8 @@ int main(int argc, char** argv)
 		printUsage(argc, argv);
 		return 1;
 	}
+
+	poppler::set_debug_error_function(dropMessage, nullptr);
 
 	Yolo5* circutYolo;
 	Yolo5* elementYolo;
@@ -322,22 +333,15 @@ int main(int argc, char** argv)
 		cv::resizeWindow("Viewer", 960, 500);
 	}
 
-	std::vector<std::shared_future<bool>> futures;
-	futures.reserve(64);
-/*
-	for(size_t i = 0; i < fileNames.size(); ++i)
+	std::vector<std::shared_future<Document>> futures;
+	futures.reserve(8);
+
+	for(size_t i = 0; i < fileNames.size();)
 	{
-		Log(Log::INFO)<<"Starting work on document "<<i<<" of "<<fileNames.size();
-		processDoucment(fileNames[i], *circutYolo, *elementYolo);
-		Log(Log::INFO)<<"Finished document";
-	}
-*/
-	for(size_t i = 0; i < fileNames.size(); ++i)
-	{
-		while(i < fileNames.size() && futures.size() < 64)
+		while(i < fileNames.size() && futures.size() < 8)
 		{
-			futures.push_back(std::async(std::launch::async, processDoucment, fileNames[i], *circutYolo, *elementYolo));
-			Log(Log::INFO)<<"Starting work on document "<<i<<" of "<<fileNames.size();
+			futures.push_back(std::async(std::launch::async, loadDocument, fileNames[i]));
+			Log(Log::INFO)<<"Loading document "<<i<<" of "<<fileNames.size();
 			++i;
 		}
 
@@ -345,8 +349,10 @@ int main(int argc, char** argv)
 		{
 			if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
 			{
+				Document document = futures[j].get();
+				processDoucment(document, circutYolo, elementYolo);
 				futures.erase(futures.begin()+j);
-				Log(Log::INFO)<<"Finished document";
+				Log(Log::INFO)<<"Finished document futures"<<futures.size();
 				break;
 			}
 		}
@@ -354,11 +360,10 @@ int main(int argc, char** argv)
 
 	for(size_t j = 0; j < futures.size(); ++j)
 	{
-		futures[j].wait();
+		Document document = futures[j].get();
+		processDoucment(document, circutYolo, elementYolo);
 		Log(Log::INFO)<<"Finished document";
 	}
-
-
 
 	delete circutYolo;
 	delete elementYolo;

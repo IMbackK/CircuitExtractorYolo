@@ -29,6 +29,7 @@ public:
 	{
 		SUPERDEBUG,
 		DEBUG,
+		EXTRA,
 		INFO,
 		WARN,
 		ERROR

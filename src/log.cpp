@@ -47,6 +47,8 @@ std::string Log::getLabel(Level level)
 		case DEBUG:
 			label = "DEBUG";
 			break;
+		case EXTRA:
+			label = "EXTRA";
 		case INFO:
 			label = "INFO ";
 			break;
