@@ -5,6 +5,7 @@
 #include <poppler-image.h>
 #include <filesystem>
 #include <vector>
+#include <future>
 
 #include "log.h"
 #include "popplertocv.h"
@@ -246,6 +247,19 @@ std::string getNextString(int argc, char** argv, int& argvCounter)
 	return "";
 }
 
+bool processDoucment(const std::string& documentFileName, Yolo5 circutYolo, Yolo5 elementYolo)
+{
+	Document document = getCircutDocument(documentFileName, &circutYolo);
+	for(Circut& circut : document.circuts)
+	{
+		getCircutElements(circut, &circutYolo);
+	}
+	bool ret = document.saveCircutImages("./circuts");
+	if(!ret)
+		Log(Log::WARN)<<"Error saving files for "<<document.basename;
+	return ret;
+}
+
 int main(int argc, char** argv)
 {
 	Log::level = Log::INFO;
@@ -308,18 +322,43 @@ int main(int argc, char** argv)
 		cv::resizeWindow("Viewer", 960, 500);
 	}
 
+	std::vector<std::shared_future<bool>> futures;
+	futures.reserve(64);
+/*
 	for(size_t i = 0; i < fileNames.size(); ++i)
 	{
-		Log(Log::INFO)<<"Processing document "<<i<<" of "<<fileNames.size();
-		Document document = getCircutDocument(fileNames[i], circutYolo);
-		for(Circut& circut : document.circuts)
-		{
-			getCircutElements(circut, circutYolo);
-		}
-		bool ret = document.saveCircutImages("./circuts");
-		if(!ret)
-			Log(Log::WARN)<<"Error saving files for "<<document.basename;
+		Log(Log::INFO)<<"Starting work on document "<<i<<" of "<<fileNames.size();
+		processDoucment(fileNames[i], *circutYolo, *elementYolo);
+		Log(Log::INFO)<<"Finished document";
 	}
+*/
+	for(size_t i = 0; i < fileNames.size(); ++i)
+	{
+		while(i < fileNames.size() && futures.size() < 64)
+		{
+			futures.push_back(std::async(std::launch::async, processDoucment, fileNames[i], *circutYolo, *elementYolo));
+			Log(Log::INFO)<<"Starting work on document "<<i<<" of "<<fileNames.size();
+			++i;
+		}
+
+		for(size_t j = 0; j < futures.size(); ++j)
+		{
+			if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
+			{
+				futures.erase(futures.begin()+j);
+				Log(Log::INFO)<<"Finished document";
+				break;
+			}
+		}
+	}
+
+	for(size_t j = 0; j < futures.size(); ++j)
+	{
+		futures[j].wait();
+		Log(Log::INFO)<<"Finished document";
+	}
+
+
 
 	delete circutYolo;
 	delete elementYolo;
