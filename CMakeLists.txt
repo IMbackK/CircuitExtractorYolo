@@ -2,7 +2,14 @@ cmake_minimum_required(VERSION 3.0)
 
 project(circutextractoryolo)
 
-set(SRC_FILES_APP src/main.cpp src/log.cpp src/popplertocv.cpp src/yolo.cpp)
+set(SRC_FILES_APP
+	src/main.cpp
+	src/log.cpp
+	src/popplertocv.cpp
+	src/yolo.cpp
+	src/circut.cpp
+	src/document.cpp
+	)
 
 find_package(OpenCV REQUIRED)
 find_package(PkgConfig REQUIRED)

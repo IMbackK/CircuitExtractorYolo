@@ -54,6 +54,7 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 		float prob = dataPtr[4];
 		if(prob > DETECTION_THRESH)
 		{
+			Log(Log::SUPERDEBUG)<<"prob "<<prob;
 			float* scoresPtr = dataPtr + 5;
 			cv::Mat scores(1, numClasses, CV_32FC1, scoresPtr);
 			cv::Point classId;
@@ -80,6 +81,8 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 		dataPtr += dimensions;
 	}
 
+	Log(Log::SUPERDEBUG, false)<<"boxes count "<<boxes.size();
+
 	std::vector<int> indices;
 	cv::dnn::NMSBoxes(boxes, probs, SCORE_THRES, NMS_THRESH, indices);
 	for (size_t i = 0; i < indices.size(); ++i)
@@ -91,6 +94,8 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 		result.rect = boxes[index];
 		detections.push_back(result);
 	}
+
+	Log(Log::SUPERDEBUG)<<" detections count "<<detections.size();
 	return detections;
 }
 

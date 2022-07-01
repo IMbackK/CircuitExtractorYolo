@@ -7,217 +7,25 @@
 #include <filesystem>
 #include <vector>
 #include <future>
+#include <memory>
 
 #include "log.h"
 #include "popplertocv.h"
 #include "yolo.h"
-
+#include "document.h"
+#include "circut.h"
 
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[CIRCUTNETWORKFILENAME] [ELEMENTNETWOKRFILENAME] [PDFFILENAME]";
 }
 
-std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs)
-{
-	std::vector<cv::Mat> circuts;
-
-	for(cv::Mat& image : images)
-	{
-		std::vector<Yolo5::DetectedClass> detections = yolo->detect(image);
-		cv::Mat visulization;
-
-		if(Log::level == Log::DEBUG)
-			image.copyTo(visulization);
-
-		for(const Yolo5::DetectedClass& detection : detections)
-		{
-			try
-			{
-				circuts.push_back(cv::Mat(image, detection.rect));
-				if(probs)
-					probs->push_back(detection.prob);
-			}
-			catch(const cv::Exception& ex)
-			{
-				Log(Log::WARN)<<"Failed to process rect "<<ex.what();
-			}
-
-			if(Log::level == Log::SUPERDEBUG)
-			{
-				cv::imshow("Viewer", circuts.back()-1);
-				cv::waitKey(0);
-				Yolo5::drawDetection(visulization, detection);
-			}
-		}
-
-		if(detections.size() > 0 && Log::level == Log::SUPERDEBUG)
-		{
-			cv::imshow("Viewer", visulization);
-			cv::waitKey(0);
-		}
-	}
-
-	return circuts;
-}
-
-typedef enum {
-	E_TYPE_R = 0,
-	E_TYPE_C,
-	E_TYPE_L,
-	E_TYPE_P,
-	E_TYPE_W,
-	E_TYPE_SOURCE,
-	E_TYPE_UNKOWN,
-	E_TYPE_COUNT,
-} ElementType;
-
-struct Element
-{
-	ElementType type;
-	cv::Rect rect;
-	cv::Mat image;
-};
-
-class Circut
-{
-public:
-
-	std::string model;
-	float prob;
-	cv::Mat image;
-	std::vector<Element> elements;
-
-	cv::Mat ciructImage() const
-	{
-		cv::Mat visulization;
-		image.copyTo(visulization);
-		for(size_t i = 0; i < elements.size(); ++i)
-		{
-			cv::rectangle(image, elements[i].rect, cv::Scalar(0,0,255), 2);
-			cv::putText(image, std::to_string(static_cast<int>(elements[i].type)),
-				cv::Point(elements[i].rect.x, elements[i].rect.y-3),
-				cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
-		}
-		return visulization;
-	}
-};
-
-class Document
-{
-public:
-	std::string title;
-	std::string keywords;
-	std::string basename;
-	std::string author;
-	std::vector<cv::Mat> pages;
-	std::vector<Circut> circuts;
-
-	void print(Log::Level level) const
-	{
-		Log(level)<<"Document: "<<basename<<" \""<<title<<"\" by \""<<author<<'\"';
-		if(keywords.size() > 0)
-		Log(level)<<"keywords: "<<keywords;
-	}
-
-	bool saveCircutImages(const std::filesystem::path folder) const
-	{
-		if(!std::filesystem::is_directory(folder))
-		{
-			if(!std::filesystem::create_directory(folder))
-			{
-				Log(Log::ERROR)<<folder<<" is not a valid directory and no directory could be created at this location";
-				return false;
-			}
-		}
-		for(size_t i = 0; i < circuts.size(); ++i)
-		{
-			const Circut& circut = circuts[i];
-			std::filesystem::path path = folder /
-				std::filesystem::path(basename + "_" +
-				std::to_string(i) + "P" +
-				std::to_string(circut.prob) + ".png");
-			try
-			{
-				cv::imwrite(path, circut.ciructImage());
-			}
-			catch(const cv::Exception& ex)
-			{
-				Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
-				return false;
-			}
-			Log(Log::INFO)<<"Wrote image to "<<path;
-		}
-		return true;
-	}
-};
-
-Document loadDocument(const std::string& fileName)
-{
-	poppler::document* popdocument = poppler::document::load_from_file(fileName);
-
-	Document document;
-
-	if(!popdocument)
-	{
-		Log(Log::ERROR)<<"Could not load pdf file from "<<fileName;
-		return document;
-	}
-
-	if(popdocument->is_encrypted())
-	{
-		Log(Log::ERROR)<<"Only unencrypted files are supported";
-		return document;
-	}
-
-	document.keywords = popdocument->get_keywords().to_latin1();
-	document.title = popdocument->get_title().to_latin1();
-	document.author = popdocument->get_creator().to_latin1();
-	document.basename = std::filesystem::path(fileName).filename();
-	document.print(Log::EXTRA);
-	document.pages = getMatsFromDocument(popdocument, cv::Size(1280, 1280));
-
-	return document;
-}
-
-void getCircutElements(Circut& circut, Yolo5* yolo)
-{
-	std::vector<Yolo5::DetectedClass> detections = yolo->detect(circut.image);
-	Log(Log::DEBUG)<<"Elements: "<<detections.size();
-	for(const Yolo5::DetectedClass& detection : detections)
-	{
-		Element element;
-		element.image = circut.image(detection.rect);
-		element.type = static_cast<ElementType>(detection.classId);
-		element.rect = detection.rect;
-		if(Log::level == Log::DEBUG)
-		{
-			cv::Mat visulization;
-			circut.image.copyTo(visulization);
-			Yolo5::drawDetection(visulization, detection);
-		}
-		circut.elements.push_back(element);
-	}
-}
-
-void cleanCircuts(std::vector<Circut>& circuts)
-{
-	for(size_t i = 0; i < circuts.size(); ++i)
-	{
-		if(circuts[i].elements.size() < 2)
-		{
-			circuts.erase(circuts.begin()+i);
-			--i;
-		}
-	}
-}
-
-void cleanDocuments(std::vector<Document>& documents)
+void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 {
 	for(size_t i = 0; i < documents.size(); ++i)
 	{
-		cleanCircuts(documents[i].circuts);
-		if(documents[i].circuts.empty())
+		documents[i]->removeEmptyCircuts();
+		if(documents[i]->circuts.empty())
 		{
 			documents.erase(documents.begin()+i);
 			--i;
@@ -225,27 +33,13 @@ void cleanDocuments(std::vector<Document>& documents)
 	}
 }
 
-bool processDoucment(Document& document, Yolo5* circutYolo, Yolo5* elementYolo)
+bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo)
 {
-	std::vector<float> probs;
-	std::vector<cv::Mat> circutImages = getCircutImages(document.pages, circutYolo, &probs);
+	document->process(circutYolo, elementYolo);
 
-	for(size_t i = 0; i < circutImages.size(); ++i)
-	{
-		const cv::Mat& image = circutImages[i];
-		Circut circut;
-		circut.image = image;
-		circut.prob = probs[i];
-		document.circuts.push_back(circut);
-	}
-
-	for(Circut& circut : document.circuts)
-	{
-		getCircutElements(circut, elementYolo);
-	}
-	bool ret = document.saveCircutImages("./circuts");
+	bool ret = document->saveCircutImages("./circuts");
 	if(!ret)
-		Log(Log::WARN)<<"Error saving files for "<<document.basename;
+		Log(Log::WARN)<<"Error saving files for "<<document->basename;
 	return ret;
 }
 
@@ -258,7 +52,7 @@ std::string getNextString(int argc, char** argv, int& argvCounter)
 		if(str != "-v")
 			return str;
 		else
-			Log::level = Log::DEBUG;
+			Log::level = Log::level == Log::DEBUG ? Log::SUPERDEBUG : Log::DEBUG;
 	}
 	return "";
 }
@@ -309,7 +103,7 @@ int main(int argc, char** argv)
 	}
 	try
 	{
-		elementYolo = new Yolo5(elementNetworkFileName, 1);
+		elementYolo = new Yolo5(elementNetworkFileName, 7);
 		Log(Log::INFO)<<"Red element network from "<<elementNetworkFileName;
 	}
 	catch(const cv::Exception& ex)
@@ -323,7 +117,7 @@ int main(int argc, char** argv)
 	for(int i = argvCounter; i < argc; ++i)
 	{
 		if(std::string(argv[i]) == "-v")
-			Log::level = Log::DEBUG;
+			Log::level = Log::level == Log::DEBUG ? Log::SUPERDEBUG : Log::DEBUG;
 		fileNames.push_back(argv[i]);
 	}
 
@@ -333,14 +127,14 @@ int main(int argc, char** argv)
 		cv::resizeWindow("Viewer", 960, 500);
 	}
 
-	std::vector<std::shared_future<Document>> futures;
+	std::vector<std::shared_future<std::shared_ptr<Document>>> futures;
 	futures.reserve(8);
 
 	for(size_t i = 0; i < fileNames.size();)
 	{
 		while(i < fileNames.size() && futures.size() < 8)
 		{
-			futures.push_back(std::async(std::launch::async, loadDocument, fileNames[i]));
+			futures.push_back(std::async(std::launch::async, Document::load, fileNames[i]));
 			Log(Log::INFO)<<"Loading document "<<i<<" of "<<fileNames.size();
 			++i;
 		}
@@ -349,10 +143,17 @@ int main(int argc, char** argv)
 		{
 			if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
 			{
-				Document document = futures[j].get();
-				processDoucment(document, circutYolo, elementYolo);
+				std::shared_ptr<Document> document = futures[j].get();
+				if(document)
+				{
+					process(document, circutYolo, elementYolo);
+					Log(Log::INFO)<<"Finished document. documents in qeue: "<<futures.size();
+				}
+				else
+				{
+					Log(Log::WARN)<<"Failed to load document. documents in qeue: "<<futures.size();
+				}
 				futures.erase(futures.begin()+j);
-				Log(Log::INFO)<<"Finished document futures"<<futures.size();
 				break;
 			}
 		}
@@ -360,8 +161,8 @@ int main(int argc, char** argv)
 
 	for(size_t j = 0; j < futures.size(); ++j)
 	{
-		Document document = futures[j].get();
-		processDoucment(document, circutYolo, elementYolo);
+		std::shared_ptr<Document> document = futures[j].get();
+		process(document, circutYolo, elementYolo);
 		Log(Log::INFO)<<"Finished document";
 	}
 
