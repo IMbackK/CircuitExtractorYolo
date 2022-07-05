@@ -1,8 +1,6 @@
 #include <iostream>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <opencv2/imgproc.hpp>
-#include <opencv2/core/fast_math.hpp>
 #include <poppler-document.h>
 #include <poppler-image.h>
 #include <poppler-global.h>
@@ -65,55 +63,6 @@ void dropMessage(const std::string& message, void* userdata)
 	(void)userdata;
 }
 
-struct Line
-{
-	cv::Point start;
-	cv::Point end;
-};
-
-std::vector<Line> linePipe(cv::Mat in)
-{
-	cv::Mat work;
-	cv::Mat vizualization;
-	std::vector<cv::Vec2f> linesVec;
-	std::vector<Line> lines;
-
-	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
-	cv::adaptiveThreshold(work, work, 1, cv::BORDER_REPLICATE, cv::THRESH_BINARY, 11, 0);
-	HoughLines(work, linesVec, 1, CV_PI/180, 150, 0, 0 );
-
-	if(Log::level == Log::SUPERDEBUG)
-		in.copyTo(vizualization);
-
-	for(size_t i = 0; i < linesVec.size(); i++)
-	{
-		float rho = linesVec[i][0];
-		float theta = linesVec[i][1];
-		double a = cos(theta);
-		double b = sin(theta);
-		double x0 = a*rho;
-		double y0 = b*rho;
-		Line line;
-
-		line.start.x = cvRound(x0 + 1000*(-b));
-		line.start.y = cvRound(y0 + 1000*(a));
-		line.end.x = cvRound(x0 - 1000*(-b));
-		line.end.y = cvRound(y0 - 1000*(a));
-
-		if(Log::level == Log::SUPERDEBUG)
-			cv::line(vizualization, line.start, line.end, cv::Scalar(0, 0, 255), 3, cv::LINE_AA);
-		lines.push_back(line);
-	}
-
-	if(Log::level == Log::SUPERDEBUG)
-	{
-		cv::imshow("Viewer", vizualization);
-		cv::waitKey(0);
-	}
-
-	return lines;
-}
-
 int main(int argc, char** argv)
 {
 	Log::level = Log::INFO;
@@ -172,7 +121,7 @@ int main(int argc, char** argv)
 		fileNames.push_back(argv[i]);
 	}
 
-	if(Log::level == Log::SUPERDEBUG)
+	//if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
 		cv::resizeWindow("Viewer", 960, 500);

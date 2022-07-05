@@ -7,6 +7,7 @@
 #include <opencv2/imgproc.hpp>
 
 #include "popplertocv.h"
+#include "linedetection.h"
 
 static std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs)
 {
@@ -33,9 +34,11 @@ static std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* 
 				Log(Log::WARN)<<"Failed to process rect "<<ex.what();
 			}
 
+			lineDetect(circuts.back());
+
 			if(Log::level == Log::SUPERDEBUG)
 			{
-				cv::imshow("Viewer", circuts.back()-1);
+				cv::imshow("Viewer", circuts.back());
 				cv::waitKey(0);
 				Yolo5::drawDetection(visulization, detection);
 			}
