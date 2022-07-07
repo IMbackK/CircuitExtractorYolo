@@ -52,7 +52,12 @@ static void removeShort(std::vector<cv::Vec4f>& lines, double lengthThresh)
 	}
 }
 
-static double lineDistance(const cv::Vec4f lineA, const cv::Vec4f lineB)
+static bool endsOnLineOrtho(const cv::Vec4f lineA, const cv::Vec4f lineB)
+{
+	return true;
+}
+
+static double lineFurthestEndDistance(const cv::Vec4f lineA, const cv::Vec4f lineB)
 {
 	cv::Point2i pointA;
 	pointA.x = lineA[0];
@@ -100,13 +105,13 @@ static double lineDuplicationScore(const cv::Vec4f lineA, const cv::Vec4f lineB,
 	vectorB[1] = std::abs(lineB[2] - lineB[3]);
 	vectorB = vectorB/cv::norm(vectorA);
 
-	double dprod = vectorA.dot(vectorB);
+	double dprod = lineDotProd(lineA, lineB);
 
 	double normA = cv::norm(vectorA);
 	double normB = cv::norm(vectorB);
 	double lengthRatio = normA > normB ? normB/normA : normA/normB;
 
-	double linedistance = lineDistance(lineA, lineB);
+	double linedistance = lineFurthestEndDistance(lineA, lineB);
 	double distanceScore = -0.5*((linedistance-distanceThresh)/distanceThresh)+1;
 
 	if(distanceScore > 1)
@@ -122,6 +127,14 @@ static void deduplicateLines(std::vector<cv::Vec4f>& lines, double distanceThres
 {
 	for(size_t i = 0; i < lines.size(); ++i)
 	{
+		cv::Point2i iPointA;
+		iPointA.x = lines[i][0];
+		iPointA.y = lines[i][1];
+
+		cv::Point2i iPointB;
+		iPointB.x = lines[i][2];
+		iPointB.y = lines[i][3];
+
 		for(size_t j = 0; j < lines.size(); ++j)
 		{
 			if(j == i)
@@ -138,6 +151,39 @@ static void deduplicateLines(std::vector<cv::Vec4f>& lines, double distanceThres
 	}
 }
 
+static void mergeCloseInlineLines(std::vector<cv::Vec4f>& lines, double tollerance)
+{
+	for(size_t i = 0; i < lines.size(); ++i)
+	{
+		for(size_t j = 0; j < lines.size(); ++j)
+		{
+			if(i == j)
+				continue;
+
+			double dprod = lineDotProd(lines[i], lines[j]);
+			if(dprod < 0.90)
+				continue;
+
+			bool firstInI;
+			bool firstInJ;
+			double closestEndDist = closestLineEndpoint(lines[i], lines[j], &firstInI, &firstInJ);
+
+			if(closestEndDist < tollerance)
+			{
+				cv::Vec4f newline(firstInI ? lines[i][2] : lines[i][0], firstInI ? lines[i][3] : lines[i][1],
+				                  firstInJ ? lines[j][2] : lines[j][0], firstInJ ? lines[j][3] : lines[j][1]);
+
+				lines[i] = newline;
+				lines.erase(lines.begin()+j);
+
+				--i;
+				--j;
+				break;
+			}
+		}
+	}
+}
+
 std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 {
 	cv::Mat work;
@@ -145,11 +191,11 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	std::vector<cv::Vec4f> lines;
 
 	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
-	cv::resize(work, work, cv::Size(), 10, 10, cv::INTER_LINEAR);
+	cv::resize(work, work, cv::Size(), 2, 2, cv::INTER_LINEAR);
 	work.convertTo(work, CV_8U, 1);
 	cv::threshold(work, work, std::numeric_limits<uint8_t>::max()/2, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
 	cv::bitwise_not(work, work);
-	cv::erode(work, work, getStructuringElement(cv::MORPH_CROSS, cv::Size(5, 5), cv::Point(-1,-1)), cv::Point(-1,-1), 2);
+	cv::ximgproc::thinning(work, work, cv::ximgproc::THINNING_ZHANGSUEN);
 	cv::imshow("Viewer", work);
 	cv::waitKey(0);
 
@@ -172,6 +218,8 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
+
+	mergeCloseInlineLines(lines, std::max(work.rows/100.0, 5.0));
 
 	//if(Log::level == Log::SUPERDEBUG)
 	{

@@ -10,6 +10,7 @@ set(SRC_FILES_APP
 	src/circut.cpp
 	src/document.cpp
 	src/linedetection.cpp
+	src/utils.cpp
 	)
 
 find_package(OpenCV REQUIRED)
