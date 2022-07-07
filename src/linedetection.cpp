@@ -52,11 +52,6 @@ static void removeShort(std::vector<cv::Vec4f>& lines, double lengthThresh)
 	}
 }
 
-static bool endsOnLineOrtho(const cv::Vec4f lineA, const cv::Vec4f lineB)
-{
-	return true;
-}
-
 static double lineFurthestEndDistance(const cv::Vec4f lineA, const cv::Vec4f lineB)
 {
 	cv::Point2i pointA;
@@ -184,6 +179,58 @@ static void mergeCloseInlineLines(std::vector<cv::Vec4f>& lines, double tolleran
 	}
 }
 
+//TODO make faster by checking bounding boxes first
+static bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, double tollerance)
+{
+	double dprod = lineDotProd(lineA, lineB);
+	if(dprod > 0.10)
+		return false;
+
+	cv::LineIterator lineAIt(cv::Point2i(lineA[0], lineA[1]), cv::Point2i(lineA[2], lineA[3]), 8);
+
+	for(int i = 0; i < lineAIt.count; ++i, ++lineAIt)
+	{
+		cv::LineIterator lineBIt(cv::Point2i(lineB[0], lineB[1]), cv::Point2i(lineB[2], lineB[3]), 8);
+		for(int j = 0; j < lineBIt.count; ++j, ++lineBIt)
+		{
+			if(cv::norm(lineBIt.pos()-lineAIt.pos()) < tollerance)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+std::vector<Net> sortIntoNets(std::vector<cv::Vec4f> lines, double tollerance)
+{
+	std::vector<Net> nets;
+	for(size_t i = 0; i < lines.size(); ++i)
+	{
+		Net net;
+		net.lines.push_back(lines[i]);
+		net.endpoints.push_back(cv::Point2i(lines[i][0], lines[i][0]));
+		net.endpoints.push_back(cv::Point2i(lines[i][2], lines[i][3]));
+		for(size_t j = i+1; j < lines.size(); ++j)
+		{
+			if(lineCrossesOrtho(lines[i], lines[j], tollerance))
+			{
+				net.lines.push_back(lines[j]);
+				lines.erase(lines.begin()+j);
+
+				cv::Point2i start(lines[j][0], lines[j][1]);
+				cv::Point2i end(lines[j][2], lines[j][3]);
+
+				if(!pointIsOnLine(start, lines[i], tollerance))
+					net.endpoints.push_back(start);
+				if(!pointIsOnLine(end, lines[i], tollerance))
+					net.endpoints.push_back(end);
+				--j;
+			}
+		}
+	}
+	return nets;
+}
+
 std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 {
 	cv::Mat work;
@@ -228,6 +275,8 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
+
+	sortIntoNets(lines, std::max(work.rows/100.0, 5.0));
 
 	return lines;
 }

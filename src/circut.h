@@ -24,6 +24,15 @@ struct Element
 	float prob;
 };
 
+class Net
+{
+public:
+	std::vector<cv::Point2i> endpoints;
+	std::vector<cv::Vec4f> lines;
+
+	void draw(cv::Mat& image);
+};
+
 class Circut
 {
 public:

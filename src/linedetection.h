@@ -1,12 +1,7 @@
 #pragma once
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/matx.hpp>
-
-struct net
-{
-	std::vector<cv::Point2i> endpoints;
-	std::vector<cv::Vec4f> lines;
-};
+#include "circut.h"
 
 std::vector<cv::Vec4f> lineDetect(cv::Mat in);
 

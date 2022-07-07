@@ -5,6 +5,7 @@
 
 #include "log.h"
 
+
 cv::Mat Circut::ciructImage() const
 {
 	cv::Mat visulization;
