@@ -14,6 +14,7 @@
 #include "yolo.h"
 #include "document.h"
 #include "circut.h"
+#include "randomgen.h"
 
 void printUsage(int argc, char** argv)
 {
@@ -65,6 +66,7 @@ void dropMessage(const std::string& message, void* userdata)
 
 int main(int argc, char** argv)
 {
+	rd::init();
 	Log::level = Log::INFO;
 	if(argc < 4)
 	{

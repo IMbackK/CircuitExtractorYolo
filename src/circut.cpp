@@ -4,7 +4,56 @@
 #include <opencv2/imgproc.hpp>
 
 #include "log.h"
+#include "randomgen.h"
+#include "utils.h"
 
+void Net::draw(cv::Mat& image) const
+{
+	cv::Scalar color(rd::rand(255), rd::rand(255), rd::rand(255));
+	drawLineSegments(image, lines, color);
+
+	for(const cv::Point2i& point : endpoints)
+		cv::circle(image, point, 5, color, -1);
+
+	for(const cv::Point2i& point : nodes)
+		cv::circle(image, point, 5, color, 1);
+}
+
+bool Net::pointIsFree(const cv::Point2i& point, const size_t ignore, double tollerance)
+{
+	bool freePoint = true;
+	for(size_t j = 0; j < lines.size(); ++j)
+	{
+		if(ignore == j)
+			continue;
+		if(pointIsOnLine(point, lines[j], tollerance))
+		{
+			freePoint = false;
+			break;
+		}
+	}
+	return freePoint;
+}
+
+void Net::computePoints(double tollerance)
+{
+	for(size_t i = 0; i < lines.size(); ++i)
+	{
+		const cv::Point2i start(lines[i][0], lines[i][1]);
+		const cv::Point2i end(lines[i][2], lines[i][3]);
+
+		if(pointIsFree(start, i, tollerance))
+			endpoints.push_back(start);
+		else
+			nodes.push_back(start);
+		if(pointIsFree(end, i, tollerance))
+			endpoints.push_back(end);
+		else
+			nodes.push_back(end);
+	}
+
+	deduplicatePoints(nodes, tollerance);
+}
 
 cv::Mat Circut::ciructImage() const
 {

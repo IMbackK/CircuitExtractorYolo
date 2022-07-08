@@ -28,9 +28,16 @@ class Net
 {
 public:
 	std::vector<cv::Point2i> endpoints;
+	std::vector<cv::Point2i> nodes;
 	std::vector<cv::Vec4f> lines;
 
-	void draw(cv::Mat& image);
+private:
+	bool pointIsFree(const cv::Point2i& point, const size_t ignore, double tollerance);
+
+public:
+
+	void draw(cv::Mat& image) const;
+	void computePoints(double tollerance = 10);
 };
 
 class Circut

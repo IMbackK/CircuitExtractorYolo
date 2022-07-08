@@ -10,6 +10,8 @@
 #include "utils.h"
 #include "log.h"
 
+static constexpr double ORTHO_TRESH = 0.025;
+
 void eraseLinesInBox(std::vector<cv::Vec4f>& lines, const cv::Rect& rect)
 {
 	for(size_t i = 0; i < lines.size(); ++i)
@@ -156,17 +158,25 @@ static void mergeCloseInlineLines(std::vector<cv::Vec4f>& lines, double tolleran
 				continue;
 
 			double dprod = lineDotProd(lines[i], lines[j]);
-			if(dprod < 0.90)
+			if(dprod < 1-ORTHO_TRESH)
 				continue;
 
-			bool firstInI;
-			bool firstInJ;
-			double closestEndDist = closestLineEndpoint(lines[i], lines[j], &firstInI, &firstInJ);
+			double closestEndDist = closestLineEndpoint(lines[i], lines[j]);
 
 			if(closestEndDist < tollerance)
 			{
-				cv::Vec4f newline(firstInI ? lines[i][2] : lines[i][0], firstInI ? lines[i][3] : lines[i][1],
-				                  firstInJ ? lines[j][2] : lines[j][0], firstInJ ? lines[j][3] : lines[j][1]);
+				std::vector<cv::Point2i> points;
+				points.push_back(cv::Point2i(lines[i][0], lines[i][1]));
+				points.push_back(cv::Point2i(lines[i][2], lines[i][3]));
+				points.push_back(cv::Point2i(lines[j][0], lines[j][1]));
+				points.push_back(cv::Point2i(lines[j][2], lines[j][3]));
+				std::pair<cv::Point2i, cv::Point2i> furthest = furthestPoints(points);
+				cv::Vec4f newline(furthest.first.x, furthest.first.y, furthest.second.x, furthest.second.y);
+				cv::Vec4f xAxis(0, 0, 1, 0);
+
+				double dprod = lineDotProd(newline, xAxis);
+				if(dprod < 1-ORTHO_TRESH && dprod > ORTHO_TRESH)
+					continue;
 
 				lines[i] = newline;
 				lines.erase(lines.begin()+j);
@@ -183,7 +193,7 @@ static void mergeCloseInlineLines(std::vector<cv::Vec4f>& lines, double tolleran
 static bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, double tollerance)
 {
 	double dprod = lineDotProd(lineA, lineB);
-	if(dprod > 0.10)
+	if(dprod > ORTHO_TRESH)
 		return false;
 
 	cv::LineIterator lineAIt(cv::Point2i(lineA[0], lineA[1]), cv::Point2i(lineA[2], lineA[3]), 8);
@@ -201,32 +211,47 @@ static bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, dou
 	return false;
 }
 
+static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance)
+{
+	bool ret = false;
+	for(size_t j = 0; j < lines.size();)
+	{
+
+		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance))
+		{
+			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"\t"<<lines[j]<<" matches";
+			net.lines.push_back(lines[j]);
+			lines.erase(lines.begin()+j);
+			moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance);
+			j = 0;
+			ret = true;
+		}
+		else
+		{
+			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"  "<<lines[j]<<" dose not match";
+			++j;
+		}
+	}
+	Log(Log::SUPERDEBUG)<<"return "<<index;
+	return ret;
+}
+
 std::vector<Net> sortIntoNets(std::vector<cv::Vec4f> lines, double tollerance)
 {
 	std::vector<Net> nets;
-	for(size_t i = 0; i < lines.size(); ++i)
+
+	Log(Log::SUPERDEBUG)<<"Lines:";
+	for(const cv::Vec4f& line : lines )
+		Log(Log::SUPERDEBUG)<<line;
+
+	while(!lines.empty())
 	{
 		Net net;
-		net.lines.push_back(lines[i]);
-		net.endpoints.push_back(cv::Point2i(lines[i][0], lines[i][0]));
-		net.endpoints.push_back(cv::Point2i(lines[i][2], lines[i][3]));
-		for(size_t j = i+1; j < lines.size(); ++j)
-		{
-			if(lineCrossesOrtho(lines[i], lines[j], tollerance))
-			{
-				net.lines.push_back(lines[j]);
-				lines.erase(lines.begin()+j);
-
-				cv::Point2i start(lines[j][0], lines[j][1]);
-				cv::Point2i end(lines[j][2], lines[j][3]);
-
-				if(!pointIsOnLine(start, lines[i], tollerance))
-					net.endpoints.push_back(start);
-				if(!pointIsOnLine(end, lines[i], tollerance))
-					net.endpoints.push_back(end);
-				--j;
-			}
-		}
+		Log(Log::SUPERDEBUG)<<"---NEW NET---";
+		net.lines.push_back(*lines.begin());
+		lines.erase(lines.begin());
+		while(moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance));
+		nets.push_back(net);
 	}
 	return nets;
 }
@@ -237,20 +262,21 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	cv::Mat vizualization;
 	std::vector<cv::Vec4f> lines;
 
+	cv::imshow("Viewer", in);
+	cv::waitKey(0);
 	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
 	cv::resize(work, work, cv::Size(), 2, 2, cv::INTER_LINEAR);
 	work.convertTo(work, CV_8U, 1);
-	cv::threshold(work, work, std::numeric_limits<uint8_t>::max()/2, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
+	cv::threshold(work, work, 2*std::numeric_limits<uint8_t>::max()/3, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
 	cv::bitwise_not(work, work);
 	cv::ximgproc::thinning(work, work, cv::ximgproc::THINNING_ZHANGSUEN);
-	cv::imshow("Viewer", work);
-	cv::waitKey(0);
 
-	std::shared_ptr<cv::LineSegmentDetector> detector = cv::createLineSegmentDetector(cv::LSD_REFINE_STD, 1, 0.6, 2.0, 12.5);
+	std::shared_ptr<cv::LineSegmentDetector> detector = cv::createLineSegmentDetector(cv::LSD_REFINE_NONE, 1, 0.6, 4.0, 12.5);
 
 	detector->detect(work, lines);
 
-	removeShort(lines, std::max(work.rows/100.0, 4.0));
+	removeShort(lines, std::max(work.rows/50.0, 4.0));
+
 	{
 		work.copyTo(vizualization);
 		drawLineSegments(vizualization, lines );
@@ -259,24 +285,23 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	}
 	Log(Log::WARN)<<"thresh "<<std::max(work.rows/100.0, 5.0);
 	deduplicateLines(lines, std::max(work.rows/100.0, 5.0));
+
+	mergeCloseInlineLines(lines, std::max(work.rows/50.0, 10.0));
+
+	std::vector<Net> nets = sortIntoNets(lines, std::max(work.rows/30.0, 10.0));
+
+	for(Net& net : nets)
+		net.computePoints(std::max(work.rows/30.0, 10.0));
+
+	Log(Log::WARN)<<"nets count "<<nets.size();
+
 	{
 		work.copyTo(vizualization);
-		drawLineSegments(vizualization, lines );
+		for(const Net& net : nets)
+			net.draw(vizualization);
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
-
-	mergeCloseInlineLines(lines, std::max(work.rows/100.0, 5.0));
-
-	//if(Log::level == Log::SUPERDEBUG)
-	{
-		work.copyTo(vizualization);
-		drawLineSegments(vizualization, lines );
-		cv::imshow("Viewer", vizualization);
-		cv::waitKey(0);
-	}
-
-	sortIntoNets(lines, std::max(work.rows/100.0, 5.0));
 
 	return lines;
 }
