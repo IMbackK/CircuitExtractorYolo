@@ -39,7 +39,7 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
     net.forward(outputs, net.getUnconnectedOutLayersNames());
 
 	double xScale = image.cols/static_cast<double>(TRAIN_SIZE_X);
-	double yScale = image.rows/static_cast<double>(TRAIN_SIZE_X);
+	double yScale = image.rows/static_cast<double>(TRAIN_SIZE_Y);
 
 	float* dataPtr = (float *)outputs[0].data;
 
