@@ -79,15 +79,6 @@ void algoCircut(cv::Mat& image)
 	std::vector<cv::Mat> images({image});
 	std::vector<cv::Mat> detections = getCircutImages(images, yolo);
 
-	if(Log::level == Log::SUPERDEBUG)
-	{
-		for(const cv::Mat& detection : detections)
-		{
-			cv::imshow("Viewer", detection);
-			cv::waitKey(0);
-		}
-	}
-
 	delete yolo;
 }
 
