@@ -33,6 +33,7 @@ typedef enum
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
+	Log(Log::INFO)<<"Valid algos: circut, element, line";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -135,14 +136,18 @@ int main(int argc, char** argv)
 
 	Algo algo = parseAlgo(argv[1]);
 
-	if(Log::level == Log::SUPERDEBUG)
-		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
-
 	cv::Mat image = cv::imread(argv[2]);
 	if(!image.data)
 	{
 		Log(Log::ERROR)<<argv[2]<<" is not a valid image file";
 		return 2;
+	}
+
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
+		cv::imshow("Viewer", image);
+		cv::waitKey(0);
 	}
 
 	switch(algo)
