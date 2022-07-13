@@ -28,3 +28,5 @@ public:
 
 	void removeEmptyCircuts();
 };
+
+std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs = nullptr);

@@ -15,6 +15,11 @@
 #include "circut.h"
 #include "randomgen.h"
 #include "linedetection.h"
+#include "yolo.h"
+#include "document.h"
+
+static constexpr char circutNetworkFileName[]  = "../data/networks/circut/best.onnx";
+static constexpr char elementNetworkFileName[] = "../data/networks/element/best.onnx";
 
 typedef enum
 {
@@ -27,7 +32,7 @@ typedef enum
 
 void printUsage(int argc, char** argv)
 {
-	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[ALGO] [IMAGEFILENAME]";
+	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -42,6 +47,7 @@ Algo parseAlgo(const std::string& in)
 			Log(Log::ERROR)<<msg;
 			throw std::invalid_argument(msg);
 		}
+		out = static_cast<Algo>(tmp);
 	}
 	catch(const std::invalid_argument& ex)
 	{
@@ -55,6 +61,75 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_INVALID;
 	}
 	return out;
+}
+
+void algoCircut(cv::Mat& image)
+{
+	Yolo5* yolo;
+	try
+	{
+		yolo = new Yolo5(circutNetworkFileName, 1);
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Can not read network from "<<circutNetworkFileName;
+		return;
+	}
+
+	std::vector<cv::Mat> images({image});
+	std::vector<cv::Mat> detections = getCircutImages(images, yolo);
+
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		for(const cv::Mat& detection : detections)
+		{
+			cv::imshow("Viewer", detection);
+			cv::waitKey(0);
+		}
+	}
+
+	delete yolo;
+}
+
+void algoElement(const cv::Mat& image)
+{
+	Yolo5* yolo;
+	try
+	{
+		yolo = new Yolo5(elementNetworkFileName, 7);
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
+		return;
+	}
+
+	Circut circut;
+	circut.image = image;
+
+	circut.getElements(yolo);
+
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::imshow("Viewer", circut.ciructImage());
+		cv::waitKey(0);
+	}
+
+	delete yolo;
+}
+
+void algoLine(cv::Mat& image)
+{
+	std::vector<Net> nets = netDetect(image);
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::Mat vizualization;
+		image.copyTo(vizualization);
+		for(const Net& net : nets)
+			net.draw(vizualization);
+		cv::imshow("Viewer", vizualization);
+		cv::waitKey(0);
+	}
 }
 
 int main(int argc, char** argv)
@@ -82,18 +157,19 @@ int main(int argc, char** argv)
 	switch(algo)
 	{
 		case ALGO_CIRCUT:
+			algoCircut(image);
 			break;
 		case ALGO_ELEMENT:
+			algoElement(image);
 			break;
 		case ALGO_LINE:
-			lineDetect(image);
+			algoLine(image);
 			break;
 		case ALGO_INVALID:
 		default:
 			Log(Log::ERROR)<<'\"'<<argv[1]<<"\" is not a valid algorithm";
 			return 3;
 	}
-
 
 	return 0;
 }

@@ -256,7 +256,7 @@ std::vector<Net> sortIntoNets(std::vector<cv::Vec4f> lines, double tollerance)
 	return nets;
 }
 
-std::vector<cv::Vec4f> lineDetect(cv::Mat in)
+std::vector<Net> netDetect(cv::Mat in)
 {
 	cv::Mat work;
 	cv::Mat vizualization;
@@ -277,12 +277,14 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 
 	removeShort(lines, std::max(work.rows/50.0, 4.0));
 
+	if(Log::level == Log::SUPERDEBUG)
 	{
 		work.copyTo(vizualization);
 		drawLineSegments(vizualization, lines );
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
+
 	Log(Log::WARN)<<"thresh "<<std::max(work.rows/100.0, 5.0);
 	deduplicateLines(lines, std::max(work.rows/100.0, 5.0));
 
@@ -293,15 +295,5 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	for(Net& net : nets)
 		net.computePoints(std::max(work.rows/30.0, 10.0));
 
-	Log(Log::WARN)<<"nets count "<<nets.size();
-
-	{
-		work.copyTo(vizualization);
-		for(const Net& net : nets)
-			net.draw(vizualization);
-		cv::imshow("Viewer", vizualization);
-		cv::waitKey(0);
-	}
-
-	return lines;
+	return nets;
 }
