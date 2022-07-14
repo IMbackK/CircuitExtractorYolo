@@ -98,9 +98,8 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 	for(size_t i = 0; i < circutImages.size(); ++i)
 	{
 		Circut circut;
-		circut.image = circutImages[i];
+		cv::resize(circutImages[i], circut.image, cv::Size(640,640), 0, 0, cv::INTER_LINEAR);
 		circut.prob = probs[i];
-		cv::resize(circut.image, circut.image, cv::Size(640,640), 0, 0, cv::INTER_LINEAR);
 		circut.getElements(elementYolo);
 		circuts.push_back(circut);
 	}
