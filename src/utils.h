@@ -3,6 +3,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/matx.hpp>
 #include <utility>
+#include "log.h"
 
 bool pointInRect(const cv::Point2i& point, const cv::Rect& rect);
 
@@ -18,3 +19,13 @@ double lineDotProd(const cv::Vec4f lineA, const cv::Vec4f lineB);
 double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB);
 
 bool pointIsOnLine(const cv::Point2i& point, const cv::Vec4f& line, double tollerance);
+
+cv::Mat getMatPlane(cv::Mat& in, int plane);
+
+cv::Mat getMatPlane4d(cv::Mat& in, int plane);
+
+std::string getMatType(const cv::Mat& mat);
+
+void printMatInfo(const cv::Mat& mat, const std::string& prefix = "", const Log::Level lvl = Log::INFO);
+
+void printMat(const cv::Mat& mat, const Log::Level lvl = Log::INFO);
