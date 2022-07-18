@@ -134,6 +134,7 @@ cv::Mat getMatPlane4d(cv::Mat& in, int plane)
 {
 	assert(in.size.dims() == 4);
 	assert(in.isContinuous());
+	assert(in.type() == CV_32F);
 	const int dims[3] = {in.size[1], in.size[2], in.size[3]};
 	cv::Mat crushed(3, dims, in.type());
 	for(int z = 0; z < crushed.size[0]; ++z)
@@ -144,7 +145,7 @@ cv::Mat getMatPlane4d(cv::Mat& in, int plane)
 			{
 				int indexIn = plane*in.size[1]*in.size[2]*in.size[3]+z*in.size[2]*in.size[3]+row*in.size[3]+col;
 				int indexOut = z*crushed.size[1]*crushed.size[2]+row*crushed.size[2]+col;
-				crushed.data[indexOut] = in.data[indexIn];
+				reinterpret_cast<float*>(crushed.data)[indexOut] = reinterpret_cast<float*>(in.data)[indexIn];
 			}
 		}
 	}
@@ -154,6 +155,7 @@ cv::Mat getMatPlane4d(cv::Mat& in, int plane)
 cv::Mat getMatPlane(cv::Mat& in, int plane)
 {
 	assert(in.size.dims() == 3);
+	assert(in.type() == CV_32F);
 	cv::Mat crushed(in.size[1], in.size[2], in.type(), cv::Scalar(0,0));
 
 	for(int row = 0; row < crushed.rows; ++row)
@@ -208,7 +210,7 @@ std::string getMatType(const cv::Mat& mat)
 
 void printMatInfo(const cv::Mat& mat, const std::string& prefix, const Log::Level lvl)
 {
-	Log(lvl)<<prefix;
+	Log(lvl, false)<<prefix<<' ';
 	const cv::MatSize size = mat.size;
 	Log(lvl, false)<<"Mat of type "<<getMatType(mat)<<" Dimentions: "<<size.dims()<<' ';
 	for(int i = 0; i < size.dims(); ++i)
@@ -225,6 +227,7 @@ void printMat(const cv::Mat& mat, const Log::Level lvl)
 {
 	assert(mat.size.dims() < 5 && mat.size.dims() > 1);
 	assert(mat.size.dims() != 4 || mat.isContinuous());
+	assert(mat.type() == CV_32F);
 	Log(lvl)<<"Mat type:"<<getMatType(mat)<<" dim: "<<mat.size.dims()<<" data: ";
 
 	std::cout<<std::fixed;
@@ -241,7 +244,7 @@ void printMat(const cv::Mat& mat, const Log::Level lvl)
 					for(int col = 0; col < mat.size[3]; ++col)
 					{
 						int index = plane*mat.size[1]*mat.size[2]*mat.size[3]+z*mat.size[2]*mat.size[3]+row*mat.size[3]+col;
-						Log(lvl, false)<<mat.data[index]<<",\t";
+						Log(lvl, false)<<reinterpret_cast<float*>(mat.data)[index]<<",\t";
 					}
 					Log(lvl, false)<<'\n';
 				}
