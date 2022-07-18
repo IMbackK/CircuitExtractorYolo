@@ -77,7 +77,6 @@ void algoCircut(cv::Mat& image)
 		return;
 	}
 
-	cv::resize(image, image, cv::Size(640,640), 0, 0, cv::INTER_LINEAR);
 	std::vector<cv::Mat> images({image});
 	std::vector<cv::Mat> detections = getCircutImages(images, yolo);
 
@@ -98,7 +97,7 @@ void algoElement(const cv::Mat& image)
 	}
 
 	Circut circut;
-	cv::resize(image, circut.image, cv::Size(640,640), 0, 0, cv::INTER_LINEAR);
+	circut.image = image;
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.image);
