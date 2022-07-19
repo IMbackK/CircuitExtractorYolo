@@ -10,24 +10,100 @@
 #include "utils.h"
 #include "log.h"
 
+static constexpr double SCALE_FACTOR = 2.0;
+
 static constexpr double ORTHO_TRESH = 0.025;
 
-void eraseLinesInBox(std::vector<cv::Vec4f>& lines, const cv::Rect& rect)
+std::pair<cv::Point2i, cv::Point2i> lineToPoints(const cv::Vec4f& line)
+{
+	cv::Point2i pointA;
+	pointA.x = line[0];
+	pointA.y = line[1];
+
+	cv::Point2i pointB;
+	pointB.x = line[2];
+	pointB.y = line[3];
+
+	return std::pair<cv::Point2i, cv::Point2i>(pointA, pointB);
+}
+
+static void eraseLinesInBox(std::vector<cv::Vec4f>& lines, const cv::Rect& rect)
 {
 	for(size_t i = 0; i < lines.size(); ++i)
 	{
-		cv::Point2i pointA;
-		pointA.x = lines[i][0];
-		pointA.y = lines[i][1];
+		std::pair<cv::Point2i, cv::Point2i> points = lineToPoints(lines[i]);
 
-		cv::Point2i pointB;
-		pointB.x = lines[i][2];
-		pointB.y = lines[i][3];
-
-		if(pointInRect(pointA, rect) && pointInRect(pointB, rect))
+		if(pointInRect(points.first, rect) && pointInRect(points.second, rect))
 		{
 			lines.erase(lines.begin()+i);
 			--i;
+		}
+	}
+}
+
+void clipLinesAgainstRect(std::vector<cv::Vec4f>& lines, const cv::Rect& rect)
+{
+	eraseLinesInBox(lines, rect);
+
+	for(size_t i = 0; i < lines.size(); ++i)
+	{
+		std::pair<cv::Point2i, cv::Point2i> points = lineToPoints(lines[i]);
+		std::pair<cv::Point2i, cv::Point2i> pointsClipped = points;
+		if(cv::clipLine(rect, pointsClipped.first, pointsClipped.second))
+		{
+			if(points.first == pointsClipped.first || points.first == pointsClipped.second)
+			{
+				if(points.first == pointsClipped.first)
+				{
+					lines[i][0] = pointsClipped.second.x;
+					lines[i][1] = pointsClipped.second.y;
+				}
+				else
+				{
+					lines[i][0] = pointsClipped.first.x;
+					lines[i][1] = pointsClipped.first.y;
+				}
+			}
+			else if(points.second == pointsClipped.first || points.second == pointsClipped.second)
+			{
+				if(points.second == pointsClipped.first)
+				{
+					lines[i][2] = pointsClipped.second.x;
+					lines[i][3] = pointsClipped.second.y;
+				}
+				else
+				{
+					lines[i][2] = pointsClipped.first.x;
+					lines[i][3] = pointsClipped.first.y;
+				}
+			}
+			else
+			{
+				if(pointDist(points.first, pointsClipped.first) < pointDist(points.first, pointsClipped.second))
+				{
+					lines[i][2] = pointsClipped.first.x;
+					lines[i][3] = pointsClipped.first.y;
+
+					cv::Vec4f newline;
+					newline[0] = pointsClipped.second.x;
+					newline[1] = pointsClipped.second.y;
+					newline[2] = points.second.x;
+					newline[3] = points.second.y;
+					lines.push_back(newline);
+				}
+				else
+				{
+					lines[i][2] = pointsClipped.second.x;
+					lines[i][3] = pointsClipped.second.y;
+
+					cv::Vec4f newline;
+					newline[0] = pointsClipped.first.x;
+					newline[1] = pointsClipped.first.y;
+					newline[2] = points.second.x;
+					newline[3] = points.second.y;
+					lines.push_back(newline);
+				}
+			}
 		}
 	}
 }
@@ -36,15 +112,9 @@ static void removeShort(std::vector<cv::Vec4f>& lines, double lengthThresh)
 {
 	for(size_t i = 0; i < lines.size(); ++i)
 	{
-		cv::Vec2f pointA;
-		pointA[0] = lines[i][0];
-		pointA[1] = lines[i][1];
+		std::pair<cv::Point2i, cv::Point2i> points = lineToPoints(lines[i]);
 
-		cv::Vec2f pointB;
-		pointB[0] = lines[i][2];
-		pointB[1] = lines[i][3];
-
-		double norm = cv::norm(pointA-pointB);
+		double norm = cv::norm(points.first-points.second);
 
 		if(norm < lengthThresh)
 		{
@@ -56,31 +126,18 @@ static void removeShort(std::vector<cv::Vec4f>& lines, double lengthThresh)
 
 static double lineFurthestEndDistance(const cv::Vec4f lineA, const cv::Vec4f lineB)
 {
-	cv::Point2i pointA;
-	pointA.x = lineA[0];
-	pointA.y = lineA[1];
-
-	cv::Point2i pointB;
-	pointB.x = lineA[2];
-	pointB.y = lineA[3];
-
-	cv::Point2i testPointA;
-	testPointA.x = lineB[0];
-	testPointA.y = lineB[1];
-
-	cv::Point2i testPointB;
-	testPointB.x = lineB[2];
-	testPointB.y = lineB[3];
+	std::pair<cv::Point2i, cv::Point2i> pointsA = lineToPoints(lineA);
+	std::pair<cv::Point2i, cv::Point2i> pointsB = lineToPoints(lineB);
 
 	float closestA = std::numeric_limits<float>::max();
 	float closestB = std::numeric_limits<float>::max();
 
-	cv::LineIterator masterLineIt(pointA, pointB, 8);
+	cv::LineIterator masterLineIt(pointsA.first, pointsA.second, 8);
 
 	for(int k = 0; k < masterLineIt.count; ++k, ++masterLineIt)
 	{
-		float normA = cv::norm(testPointA - masterLineIt.pos());
-		float normB = cv::norm(testPointB - masterLineIt.pos());
+		float normA = cv::norm(pointsB.first - masterLineIt.pos());
+		float normB = cv::norm(pointsB.second - masterLineIt.pos());
 
 		if(normA < closestA)
 			closestA = normA;
@@ -124,14 +181,6 @@ static void deduplicateLines(std::vector<cv::Vec4f>& lines, double distanceThres
 {
 	for(size_t i = 0; i < lines.size(); ++i)
 	{
-		cv::Point2i iPointA;
-		iPointA.x = lines[i][0];
-		iPointA.y = lines[i][1];
-
-		cv::Point2i iPointB;
-		iPointB.x = lines[i][2];
-		iPointB.y = lines[i][3];
-
 		for(size_t j = 0; j < lines.size(); ++j)
 		{
 			if(j == i)
@@ -190,7 +239,7 @@ static void mergeCloseInlineLines(std::vector<cv::Vec4f>& lines, double tolleran
 }
 
 //TODO make faster by checking bounding boxes first
-static bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, double tollerance)
+bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, double tollerance)
 {
 	double dprod = lineDotProd(lineA, lineB);
 	if(dprod > ORTHO_TRESH)
@@ -211,52 +260,7 @@ static bool lineCrossesOrtho(const cv::Vec4f& lineA, const cv::Vec4f& lineB, dou
 	return false;
 }
 
-static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance)
-{
-	bool ret = false;
-	for(size_t j = 0; j < lines.size();)
-	{
-
-		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance))
-		{
-			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"\t"<<lines[j]<<" matches";
-			net.lines.push_back(lines[j]);
-			lines.erase(lines.begin()+j);
-			moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance);
-			j = 0;
-			ret = true;
-		}
-		else
-		{
-			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"  "<<lines[j]<<" dose not match";
-			++j;
-		}
-	}
-	Log(Log::SUPERDEBUG)<<"return "<<index;
-	return ret;
-}
-
-std::vector<Net> sortIntoNets(std::vector<cv::Vec4f> lines, double tollerance)
-{
-	std::vector<Net> nets;
-
-	Log(Log::SUPERDEBUG)<<"Lines:";
-	for(const cv::Vec4f& line : lines )
-		Log(Log::SUPERDEBUG)<<line;
-
-	while(!lines.empty())
-	{
-		Net net;
-		Log(Log::SUPERDEBUG)<<"---NEW NET---";
-		net.lines.push_back(*lines.begin());
-		lines.erase(lines.begin());
-		while(moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance));
-		nets.push_back(net);
-	}
-	return nets;
-}
-
-std::vector<Net> netDetect(cv::Mat in)
+std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 {
 	cv::Mat work;
 	cv::Mat vizualization;
@@ -265,7 +269,7 @@ std::vector<Net> netDetect(cv::Mat in)
 	cv::imshow("Viewer", in);
 	cv::waitKey(0);
 	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
-	cv::resize(work, work, cv::Size(), 2, 2, cv::INTER_LINEAR);
+	cv::resize(work, work, cv::Size(), SCALE_FACTOR, SCALE_FACTOR, cv::INTER_LINEAR);
 	work.convertTo(work, CV_8U, 1);
 	cv::threshold(work, work, 2*std::numeric_limits<uint8_t>::max()/3, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
 	cv::bitwise_not(work, work);
@@ -290,10 +294,13 @@ std::vector<Net> netDetect(cv::Mat in)
 
 	mergeCloseInlineLines(lines, std::max(work.rows/50.0, 10.0));
 
-	std::vector<Net> nets = sortIntoNets(lines, std::max(work.rows/30.0, 10.0));
+	for(cv::Vec4f& line : lines)
+	{
+		line[0] /= SCALE_FACTOR;
+		line[1] /= SCALE_FACTOR;
+		line[2] /= SCALE_FACTOR;
+		line[3] /= SCALE_FACTOR;
+	}
 
-	for(Net& net : nets)
-		net.computePoints(std::max(work.rows/30.0, 10.0));
-
-	return nets;
+	return lines;
 }

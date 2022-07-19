@@ -26,14 +26,14 @@ typedef enum
 	ALGO_INVALID = -1,
 	ALGO_CIRCUT = 0,
 	ALGO_ELEMENT,
-	ALGO_LINE,
+	ALGO_NET,
 	ALGO_COUNT
 } Algo;
 
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
-	Log(Log::INFO)<<"Valid algos: circut, element, line";
+	Log(Log::INFO)<<"Valid algos: circut, element, net";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -56,8 +56,8 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_CIRCUT;
 		else if(in == "element")
 			out = ALGO_ELEMENT;
-		else if(in == "line")
-			out = ALGO_LINE;
+		else if(in == "net")
+			out = ALGO_NET;
 		else
 			out = ALGO_INVALID;
 	}
@@ -104,7 +104,7 @@ void algoElement(const cv::Mat& image)
 		cv::waitKey(0);
 	}
 
-	circut.getElements(yolo);
+	circut.detectElements(yolo);
 
 	if(Log::level == Log::SUPERDEBUG)
 	{
@@ -117,12 +117,34 @@ void algoElement(const cv::Mat& image)
 
 void algoLine(cv::Mat& image)
 {
-	std::vector<Net> nets = netDetect(image);
+	Yolo5* yolo;
+	try
+	{
+		yolo = new Yolo5(elementNetworkFileName, 7);
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
+		return;
+	}
+
+	Circut circut;
+	circut.image = image;
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::imshow("Viewer", circut.image);
+		cv::waitKey(0);
+	}
+
+	circut.detectElements(yolo);
+
+	circut.detectNets();
+
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::Mat vizualization;
 		image.copyTo(vizualization);
-		for(const Net& net : nets)
+		for(const Net& net : circut.nets)
 			net.draw(vizualization);
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
@@ -163,7 +185,7 @@ int main(int argc, char** argv)
 		case ALGO_ELEMENT:
 			algoElement(image);
 			break;
-		case ALGO_LINE:
+		case ALGO_NET:
 			algoLine(image);
 			break;
 		case ALGO_INVALID:

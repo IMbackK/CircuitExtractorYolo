@@ -38,6 +38,7 @@ public:
 
 	void draw(cv::Mat& image) const;
 	void computePoints(double tollerance = 10);
+	void coordScale(double factor);
 };
 
 class Circut
@@ -48,8 +49,15 @@ public:
 	float prob;
 	cv::Mat image;
 	std::vector<Element> elements;
+	std::vector<Net> nets;
 
+private:
+	static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance);
+	static std::vector<Net> sortLinesIntoNets(std::vector<cv::Vec4f> lines, double tollerance);
+
+public:
 	cv::Mat ciructImage() const;
 
-	void getElements(Yolo5* yolo);
+	void detectElements(Yolo5* yolo);
+	void detectNets();
 };

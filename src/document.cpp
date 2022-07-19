@@ -100,7 +100,7 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 		Circut circut;
 		circut.image = circutImages[i];
 		circut.prob = probs[i];
-		circut.getElements(elementYolo);
+		circut.detectElements(elementYolo);
 		circuts.push_back(circut);
 	}
 

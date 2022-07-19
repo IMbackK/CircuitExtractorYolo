@@ -6,6 +6,7 @@
 #include "log.h"
 #include "randomgen.h"
 #include "utils.h"
+#include "linedetection.h"
 
 void Net::draw(cv::Mat& image) const
 {
@@ -55,6 +56,29 @@ void Net::computePoints(double tollerance)
 	deduplicatePoints(nodes, tollerance);
 }
 
+void Net::coordScale(double factor)
+{
+	for(cv::Point2i& point : endpoints)
+	{
+		point.x *= factor;
+		point.y *= factor;
+	}
+
+	for(cv::Point2i& point : nodes)
+	{
+		point.x *= factor;
+		point.y *= factor;
+	}
+
+	for(cv::Vec4f& vec : lines)
+	{
+		vec[0] *= factor;
+		vec[1] *= factor;
+		vec[2] *= factor;
+		vec[3] *= factor;
+	}
+}
+
 cv::Mat Circut::ciructImage() const
 {
 	cv::Mat visulization;
@@ -71,7 +95,7 @@ cv::Mat Circut::ciructImage() const
 	return visulization;
 }
 
-void Circut::getElements(Yolo5* yolo)
+void Circut::detectElements(Yolo5* yolo)
 {
 	std::vector<Yolo5::DetectedClass> detections = yolo->detect(image);
 	Log(Log::DEBUG)<<"Elements: "<<detections.size();
@@ -101,5 +125,67 @@ void Circut::getElements(Yolo5* yolo)
 		{
 			Log(Log::WARN)<<detection.rect<<" out of bounds";
 		}
+	}
+}
+
+bool Circut::moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance)
+{
+	bool ret = false;
+	for(size_t j = 0; j < lines.size();)
+	{
+
+		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance))
+		{
+			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"\t"<<lines[j]<<" matches";
+			net.lines.push_back(lines[j]);
+			lines.erase(lines.begin()+j);
+			moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance);
+			j = 0;
+			ret = true;
+		}
+		else
+		{
+			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"  "<<lines[j]<<" dose not match";
+			++j;
+		}
+	}
+	Log(Log::SUPERDEBUG)<<"return "<<index;
+	return ret;
+}
+
+std::vector<Net> Circut::sortLinesIntoNets(std::vector<cv::Vec4f> lines, double tollerance)
+{
+	std::vector<Net> nets;
+
+	Log(Log::SUPERDEBUG)<<"Lines:";
+	for(const cv::Vec4f& line : lines )
+		Log(Log::SUPERDEBUG)<<line;
+
+	while(!lines.empty())
+	{
+		Net net;
+		Log(Log::SUPERDEBUG)<<"---NEW NET---";
+		net.lines.push_back(*lines.begin());
+		lines.erase(lines.begin());
+		while(moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance));
+		nets.push_back(net);
+	}
+	return nets;
+}
+
+void Circut::detectNets()
+{
+	assert(image.data);
+
+	std::vector<cv::Vec4f> lines = lineDetect(image);
+
+	for(const Element& element : elements)
+		clipLinesAgainstRect(lines, padRect(element.rect, 0.1, 0.05));
+
+	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
+
+	for(Net& net : nets)
+	{
+		net.computePoints(std::max(image.rows/15.0, 5.0));
 	}
 }
