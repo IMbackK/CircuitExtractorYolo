@@ -8,6 +8,29 @@
 #include "utils.h"
 #include "linedetection.h"
 
+static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint)
+{
+	double padX;
+	double padY;
+	switch(hint)
+	{
+		case C_DIRECTION_HORIZ:
+			padX = 0.1;
+			padY = 0;
+			break;
+		case C_DIRECTION_VERT:
+			padX = 0;
+			padY = 0.1;
+			break;
+		case C_DIRECTION_UNKOWN:
+		default:
+			padX = 0.1;
+			padY = 0.05;
+			break;
+	}
+	return std::pair<double, double>(padX, padY);
+}
+
 void Net::draw(cv::Mat& image) const
 {
 	cv::Scalar color(rd::rand(255), rd::rand(255), rd::rand(255));
@@ -77,6 +100,22 @@ void Net::coordScale(double factor)
 		vec[2] *= factor;
 		vec[3] *= factor;
 	}
+}
+
+bool Net::addElement(Element* element, DirectionHint hint)
+{
+	std::pair<double, double> padding = getRectXYPaddingPercents(hint);
+	cv::Rect paddedRect = padRect(element->rect, padding.first, padding.second);
+
+	for(const cv::Point2i& point : endpoints)
+	{
+		if(pointInRect(point, paddedRect))
+		{
+			elements.push_back(element);
+			return true;
+		}
+	}
+	return false;
 }
 
 cv::Mat Circut::ciructImage() const
@@ -173,14 +212,16 @@ std::vector<Net> Circut::sortLinesIntoNets(std::vector<cv::Vec4f> lines, double 
 	return nets;
 }
 
-void Circut::detectNets()
+void Circut::detectNets(DirectionHint hint)
 {
 	assert(image.data);
 
 	std::vector<cv::Vec4f> lines = lineDetect(image);
 
+	std::pair<double, double> padding = getRectXYPaddingPercents(hint);
+
 	for(const Element& element : elements)
-		clipLinesAgainstRect(lines, padRect(element.rect, 0.1, 0.05));
+		clipLinesAgainstRect(lines, padRect(element.rect, padding.first, padding.second));
 
 	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
 
@@ -188,4 +229,15 @@ void Circut::detectNets()
 	{
 		net.computePoints(std::max(image.rows/15.0, 5.0));
 	}
+}
+
+void Circut::parseString(DirectionHint hint)
+{
+	for(Net& net : nets)
+	{
+		for(Element& element : elements)
+			net.addElement(&element, hint);
+	}
+
+
 }

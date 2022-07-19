@@ -16,6 +16,12 @@ typedef enum {
 	E_TYPE_COUNT,
 } ElementType;
 
+typedef enum {
+	C_DIRECTION_HORIZ,
+	C_DIRECTION_VERT,
+	C_DIRECTION_UNKOWN
+} DirectionHint;
+
 struct Element
 {
 	ElementType type;
@@ -30,21 +36,21 @@ public:
 	std::vector<cv::Point2i> endpoints;
 	std::vector<cv::Point2i> nodes;
 	std::vector<cv::Vec4f> lines;
+	std::vector<Element*> elements;
 
 private:
 	bool pointIsFree(const cv::Point2i& point, const size_t ignore, double tollerance);
 
 public:
-
 	void draw(cv::Mat& image) const;
 	void computePoints(double tollerance = 10);
 	void coordScale(double factor);
+	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN);
 };
 
 class Circut
 {
 public:
-
 	std::string model;
 	float prob;
 	cv::Mat image;
@@ -57,7 +63,7 @@ private:
 
 public:
 	cv::Mat ciructImage() const;
-
 	void detectElements(Yolo5* yolo);
-	void detectNets();
+	void detectNets(DirectionHint hint = C_DIRECTION_UNKOWN);
+	void parseString(DirectionHint hint = C_DIRECTION_UNKOWN);
 };
