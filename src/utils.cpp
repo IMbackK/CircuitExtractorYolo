@@ -1,6 +1,7 @@
 #include "utils.h"
 #include <opencv2/imgproc.hpp>
 #include <iomanip>
+#include <algorithm>
 
 bool pointInRect(const cv::Point2i& point, const cv::Rect& rect)
 {
@@ -117,6 +118,33 @@ double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB)
 	return minDist;
 }
 
+cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent)
+{
+	cv::Rect out;
+	if(xPadPercent > 0)
+	{
+		out.x = rect.x - std::max(static_cast<int>(rect.width*xPadPercent), 1);
+		out.width = std::max(static_cast<int>(rect.width*(1+xPadPercent)), rect.width+1);
+	}
+	else
+	{
+		out.x = rect.x;
+		out.width = rect.width;
+	}
+
+	if(yPadPercent > 0)
+	{
+		out.y = rect.y - std::max(static_cast<int>(rect.height*yPadPercent), 1);
+		out.height = std::max(static_cast<int>(rect.height*(1+xPadPercent)), rect.height+1);
+	}
+	else
+	{
+		out.y = rect.y;
+		out.height = rect.height;
+	}
+	return out;
+}
+
 bool pointIsOnLine(const cv::Point2i& point, const cv::Vec4f& line, double tollerance)
 {
 	cv::LineIterator lineIt(cv::Point2i(line[0], line[1]), cv::Point2i(line[2], line[3]), 8);
@@ -150,6 +178,13 @@ cv::Mat getMatPlane4d(cv::Mat& in, int plane)
 		}
 	}
 	return crushed;
+}
+
+double pointDist(const cv::Point2i& pointA, const cv::Point2i& pointB)
+{
+	cv::Vec2i a(pointA.x, pointA.y);
+	cv::Vec2i b(pointB.x, pointB.y);
+	return cv::norm(a-b);
 }
 
 cv::Mat getMatPlane(cv::Mat& in, int plane)

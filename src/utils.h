@@ -20,6 +20,10 @@ double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB);
 
 bool pointIsOnLine(const cv::Point2i& point, const cv::Vec4f& line, double tollerance);
 
+double pointDist(const cv::Point2i& pointA, const cv::Point2i& pointB);
+
+cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent);
+
 cv::Mat getMatPlane(cv::Mat& in, int plane);
 
 cv::Mat getMatPlane4d(cv::Mat& in, int plane);
