@@ -30,6 +30,7 @@ private:
 private:
 	cv::Mat resizeWithBorder(const cv::Mat& mat);
 	cv::Mat prepare(const cv::Mat& mat);
+	void transformCord(std::vector<DetectedClass>& detections, const cv::Size& matSize);
 
 public:
 	Yolo5(const cv::dnn::Net &netI, size_t numClassesI);

@@ -36,15 +36,13 @@ cv::Mat Yolo5::resizeWithBorder(const cv::Mat& mat)
 	if(mat.rows < mat.cols)
 	{
 		cv::resize(mat, resized, cv::Size(TRAIN_SIZE_X, TRAIN_SIZE_X/aspectRatio), 0, 0, cv::INTER_LINEAR);
-		int borderPix = (TRAIN_SIZE_X-TRAIN_SIZE_X/2)/2;
-		Log(Log::SUPERDEBUG)<<"mat.rows "<<mat.rows<<" mat.cols "<<mat.cols<<" borderPix "<<borderPix;
+		int borderPix = (TRAIN_SIZE_X-TRAIN_SIZE_X/aspectRatio)/2;
 		cv::copyMakeBorder(resized, out, borderPix, borderPix, 0, 0, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
 	}
 	else
 	{
 		cv::resize(mat, resized, cv::Size(TRAIN_SIZE_Y*aspectRatio, TRAIN_SIZE_Y), 0, 0, cv::INTER_LINEAR);
 		int borderPix = (TRAIN_SIZE_Y-TRAIN_SIZE_Y*aspectRatio)/2;
-		Log(Log::SUPERDEBUG)<<"mat.rows "<<mat.rows<<" mat.cols "<<mat.cols<<" borderPix "<<borderPix;
 		cv::copyMakeBorder(resized, out, 0, 0, borderPix, borderPix, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
 	}
 
@@ -65,15 +63,9 @@ cv::Mat Yolo5::prepare(const cv::Mat& mat)
 	const int dims[] = {1, inter.channels(), inter.rows, inter.cols};
 	cv::Mat out(sizeof(dims)/sizeof(*dims), dims, CV_32F);
 
-	printMatInfo(out, __func__ + std::string(" out:"));
 
 	std::vector<cv::Mat> splitChannels(3);
 	cv::split(inter, splitChannels);
-
-	for(size_t i = 0; i < splitChannels.size(); ++i)
-	{
-		printMatInfo(splitChannels[i], __func__ + std::string(" split ") + std::to_string(i) + ":");
-	}
 
 	for(int channel = 0; channel < inter.channels(); ++channel)
 	{
@@ -90,42 +82,51 @@ cv::Mat Yolo5::prepare(const cv::Mat& mat)
 	return out;
 }
 
+void Yolo5::transformCord(std::vector<DetectedClass>& detections, const cv::Size& matSize)
+{
+	double aspectRatio = matSize.width/static_cast<double>(matSize.height);
+
+	if(aspectRatio > 1)
+	{
+		double scaleFactor = static_cast<double>(matSize.width)/TRAIN_SIZE_X;
+		int borderPix = (TRAIN_SIZE_Y-matSize.height/scaleFactor)/2;
+
+		for(DetectedClass& detection : detections)
+		{
+			detection.rect.width = detection.rect.width*scaleFactor;
+			detection.rect.height = detection.rect.height*scaleFactor;
+
+			detection.rect.x = detection.rect.x*scaleFactor;
+			detection.rect.y = (detection.rect.y - borderPix)*scaleFactor;
+		}
+	}
+	else
+	{
+		double scaleFactor = static_cast<double>(matSize.height)/TRAIN_SIZE_X;
+		int borderPix = (TRAIN_SIZE_X-matSize.width/scaleFactor)/2;
+
+		for(DetectedClass& detection : detections)
+		{
+			detection.rect.width = detection.rect.width*scaleFactor;
+			detection.rect.height = detection.rect.height*scaleFactor;
+
+			detection.rect.x = (detection.rect.x-borderPix)*scaleFactor;
+			detection.rect.y = detection.rect.y*scaleFactor;
+		}
+	}
+}
+
 std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 {
-	//cv::Mat blob;
-	//cv::dnn::blobFromImage(image, blob, 1.0/255, cv::Size(TRAIN_SIZE_X, TRAIN_SIZE_Y), cv::Scalar(0, 0, 0), false, false);
-
 	cv::Mat blob = prepare(image);
-
-	std::cout<<"STEP: "<<blob.step1()<<std::endl;
-
-	cv::Mat mat3d = getMatPlane4d(blob, 0);
-	cv::Mat mat2d = getMatPlane(mat3d, 0);
-	//printMat(mat2d, Log::INFO);
-
-	if(Log::level == Log::SUPERDEBUG)
-	{
-		Log(Log::SUPERDEBUG)<<"Mat2d";
-		cv::Mat viz;
-		mat2d.convertTo(viz, CV_8U, 255);
-		cv::imshow("Viewer", viz);
-		cv::waitKey(0);
-	}
 
 	net.setInput(blob);
 
 	std::vector<cv::Mat> outputs;
     net.forward(outputs, net.getUnconnectedOutLayersNames());
 
-	double xScale = image.cols/static_cast<double>(TRAIN_SIZE_X);
-	double yScale = image.rows/static_cast<double>(TRAIN_SIZE_Y);
-
 	for(size_t i = 0; i < outputs.size(); ++i)
-	{
 		outputs[i] = getMatPlane(outputs[i], 0);
-		Log(Log::INFO, false)<<"output "<<i<<' ';
-		//printMat(outputs[i], Log::INFO);
-	}
 
 	float* dataPtr = (float *)outputs[0].data;
 
@@ -154,10 +155,10 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 				float y = dataPtr[1];
 				float w = dataPtr[2];
 				float h = dataPtr[3];
-				int left = (x - 0.5 * w) * xScale;
-				int top = (y - 0.5 * h) * yScale;
-				int width = w * xScale;
-				int height = h * yScale;
+				int left = (x - 0.5 * w);
+				int top = (y - 0.5 * h);
+				int width = w;
+				int height = h;
 				boxes.push_back(cv::Rect(left, top, width, height));
 			}
 
@@ -178,6 +179,8 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 		result.rect = boxes[index];
 		detections.push_back(result);
 	}
+
+	transformCord(detections, cv::Size(image.cols, image.rows));
 
 	Log(Log::SUPERDEBUG)<<" detections count "<<detections.size();
 	return detections;
