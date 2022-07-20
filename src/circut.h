@@ -22,12 +22,16 @@ typedef enum {
 	C_DIRECTION_UNKOWN
 } DirectionHint;
 
-struct Element
+class Element
 {
+public:
 	ElementType type;
 	cv::Rect rect;
 	cv::Mat image;
 	float prob;
+
+public:
+	char getChar() const;
 };
 
 class Net
@@ -42,10 +46,11 @@ private:
 	bool pointIsFree(const cv::Point2i& point, const size_t ignore, double tollerance);
 
 public:
-	void draw(cv::Mat& image) const;
+	void draw(cv::Mat& image, const cv::Scalar* color = nullptr) const;
 	void computePoints(double tollerance = 10);
 	void coordScale(double factor);
 	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN);
+	cv::Rect endpointRect() const;
 };
 
 class Circut
@@ -60,6 +65,15 @@ public:
 private:
 	static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance);
 	static std::vector<Net> sortLinesIntoNets(std::vector<cv::Vec4f> lines, double tollerance);
+	static void balanceBrackets(std::string& str);
+
+	void removeUnconnectedNets();
+	size_t getStartingIndex(DirectionHint hint) const;
+	int64_t getOpositNetIndex(const Element* element, Net* net) const;
+	size_t getEndingIndex(DirectionHint hint) const;
+	void getStringForPath(std::string& str, const Element* element,
+	                      std::vector<const Element*>& handled, size_t netIndex,
+	                      size_t endNetIndex, size_t startNetIndex);
 
 public:
 	cv::Mat ciructImage() const;
