@@ -142,13 +142,11 @@ void algoLine(cv::Mat& image)
 
 	if(Log::level == Log::SUPERDEBUG)
 	{
-		cv::Mat vizualization;
-		image.copyTo(vizualization);
-		for(const Net& net : circut.nets)
-			net.draw(vizualization);
-		cv::imshow("Viewer", vizualization);
+		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
 	}
+
+	circut.parseString();
 }
 
 int main(int argc, char** argv)
