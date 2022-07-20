@@ -12,7 +12,7 @@
 
 static constexpr double SCALE_FACTOR = 2.0;
 
-static constexpr double ORTHO_TRESH = 0.025;
+static constexpr double ORTHO_TRESH = 0.08;
 
 std::pair<cv::Point2i, cv::Point2i> lineToPoints(const cv::Vec4f& line)
 {
@@ -266,8 +266,6 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	cv::Mat vizualization;
 	std::vector<cv::Vec4f> lines;
 
-	cv::imshow("Viewer", in);
-	cv::waitKey(0);
 	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
 	cv::resize(work, work, cv::Size(), SCALE_FACTOR, SCALE_FACTOR, cv::INTER_LINEAR);
 	work.convertTo(work, CV_8U, 1);
@@ -275,11 +273,16 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	cv::bitwise_not(work, work);
 	cv::ximgproc::thinning(work, work, cv::ximgproc::THINNING_ZHANGSUEN);
 
-	std::shared_ptr<cv::LineSegmentDetector> detector = cv::createLineSegmentDetector(cv::LSD_REFINE_NONE, 1, 0.6, 4.0, 12.5);
+	std::shared_ptr<cv::LineSegmentDetector> detector = cv::createLineSegmentDetector(cv::LSD_REFINE_STD, 1, 2, 2.0, 50.5);
 
 	detector->detect(work, lines);
 
 	removeShort(lines, std::max(work.rows/50.0, 4.0));
+
+	Log(Log::WARN)<<"thresh "<<std::max(work.rows/100.0, 5.0);
+	deduplicateLines(lines, std::max(work.rows/100.0, 5.0));
+
+	mergeCloseInlineLines(lines, std::max(work.rows/50.0, 10.0));
 
 	if(Log::level == Log::SUPERDEBUG)
 	{
@@ -288,11 +291,6 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
-
-	Log(Log::WARN)<<"thresh "<<std::max(work.rows/100.0, 5.0);
-	deduplicateLines(lines, std::max(work.rows/100.0, 5.0));
-
-	mergeCloseInlineLines(lines, std::max(work.rows/50.0, 10.0));
 
 	for(cv::Vec4f& line : lines)
 	{

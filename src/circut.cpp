@@ -30,24 +30,24 @@ char Element::getChar() const
 	}
 }
 
-static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint)
+static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor)
 {
 	double padX;
 	double padY;
 	switch(hint)
 	{
 		case C_DIRECTION_HORIZ:
-			padX = 0.1;
+			padX = 0.3*tolleranceFactor;
 			padY = 0;
 			break;
 		case C_DIRECTION_VERT:
 			padX = 0;
-			padY = 0.1;
+			padY = 0.3*tolleranceFactor;
 			break;
 		case C_DIRECTION_UNKOWN:
 		default:
-			padX = 0.1;
-			padY = 0.05;
+			padX = 0.3*tolleranceFactor;
+			padY = 0.15*tolleranceFactor;
 			break;
 	}
 	return std::pair<double, double>(padX, padY);
@@ -55,11 +55,17 @@ static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint)
 
 void Net::draw(cv::Mat& image, const cv::Scalar* color) const
 {
-	cv::Scalar colorFinal = color ? *color : cv::Scalar(rd::rand(128), rd::rand(255), rd::rand(128));
+	cv::Scalar colorFinal = color ? *color : cv::Scalar(rd::rand(64)+64, rd::rand(191)+64, rd::rand(64)+64);
 	drawLineSegments(image, lines, colorFinal);
 
-	for(const cv::Point2i& point : endpoints)
-		cv::circle(image, point, 5, colorFinal, -1);
+	for(size_t i = 0; i < endpoints.size(); ++i)
+	{
+		auto iter = std::find(connectedEndpointIndecies.begin(), connectedEndpointIndecies.end(), i);
+		if(iter != connectedEndpointIndecies.end())
+			cv::drawMarker(image, endpoints[i], colorFinal, cv::MARKER_SQUARE, 10, 1);
+		else
+			cv::circle(image, endpoints[i], 5, colorFinal, -1);
+	}
 
 	for(const cv::Point2i& point : nodes)
 		cv::circle(image, point, 5, colorFinal, 1);
@@ -124,16 +130,18 @@ void Net::coordScale(double factor)
 	}
 }
 
-bool Net::addElement(Element* element, DirectionHint hint)
+bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFactor)
 {
-	std::pair<double, double> padding = getRectXYPaddingPercents(hint);
-	cv::Rect paddedRect = padRect(element->rect, padding.first, padding.second);
+	std::pair<double, double> padding = getRectXYPaddingPercents(hint, tolleranceFactor);
+	cv::Rect paddedRect = padRect(element->rect, padding.first, padding.second, 5*tolleranceFactor);
 
-	for(const cv::Point2i& point : endpoints)
+	for(size_t i = 0; i < endpoints.size(); ++i)
 	{
+		const cv::Point2i& point = endpoints[i];
 		if(pointInRect(point, paddedRect))
 		{
 			elements.push_back(element);
+			connectedEndpointIndecies.push_back(i);
 			return true;
 		}
 	}
@@ -157,6 +165,12 @@ cv::Rect Net::endpointRect() const
 	return cv::Rect(left, top, right-left, bottom-top);
 }
 
+cv::Point Net::center() const
+{
+	cv::Rect rect = endpointRect();
+	return cv::Point(rect.x+rect.width/2, rect.y+rect.height/2);
+}
+
 cv::Mat Circut::ciructImage() const
 {
 	cv::Mat visulization;
@@ -168,7 +182,7 @@ cv::Mat Circut::ciructImage() const
 			" P: " +  std::to_string(elements[i].prob);
 		cv::putText(visulization, labelStr,
 			cv::Point(elements[i].rect.x, elements[i].rect.y-3),
-			cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
+			cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
 	}
 
 	size_t firstNetIndex = getStartingIndex(C_DIRECTION_UNKOWN);
@@ -198,16 +212,6 @@ void Circut::detectElements(Yolo5* yolo)
 {
 	std::vector<Yolo5::DetectedClass> detections = yolo->detect(image);
 	Log(Log::DEBUG)<<"Elements: "<<detections.size();
-
-	if(detections.size() > 0 && Log::level == Log::SUPERDEBUG)
-	{
-		cv::Mat visulization;
-		image.copyTo(visulization);
-		for(const Yolo5::DetectedClass& detection : detections)
-			Yolo5::drawDetection(visulization, detection);
-		cv::imshow("Viewer", visulization);
-		cv::waitKey(0);
-	}
 
 	for(const Yolo5::DetectedClass& detection : detections)
 	{
@@ -278,10 +282,8 @@ void Circut::detectNets(DirectionHint hint)
 
 	std::vector<cv::Vec4f> lines = lineDetect(image);
 
-	std::pair<double, double> padding = getRectXYPaddingPercents(hint);
-
 	for(const Element& element : elements)
-		clipLinesAgainstRect(lines, padRect(element.rect, padding.first, padding.second));
+		clipLinesAgainstRect(lines, element.rect);
 
 	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
 
@@ -361,6 +363,22 @@ int64_t Circut::getOpositNetIndex(const Element* element, Net* net) const
 	return -1;
 }
 
+std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
+{
+	std::vector<Net*> out;
+
+	for(Net& net : nets)
+	{
+		for(const Element* netElement: net.elements)
+		{
+			if(element == netElement)
+				out.push_back(&net);
+		}
+	}
+
+	return out;
+}
+
 void Circut::getStringForPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
 {
 	int64_t opposing = getOpositNetIndex(element, &nets[netIndex]);
@@ -430,18 +448,51 @@ void Circut::balanceBrackets(std::string& str)
 	}
 }
 
-void Circut::parseString(DirectionHint hint)
+std::string Circut::getString(DirectionHint hint)
 {
+	if(!model.empty())
+		return model;
+
+	size_t startingIndex = getStartingIndex(hint);
+	size_t endIndex = getEndingIndex(hint);
+
 	for(Net& net : nets)
 	{
 		for(Element& element : elements)
 			net.addElement(&element, hint);
 	}
 
-	removeUnconnectedNets();
+	for(Element& element : elements)
+	{
+		if(getElementAdjacentNets(&element).size() < 2)
+		{
+			for(Net& net : nets)
+				net.addElement(&element, hint, 3);
+		}
+	}
 
-	size_t startingIndex = getStartingIndex(hint);
-	size_t endIndex = getEndingIndex(hint);
+	bool dangling = false;
+	for(Element& element : elements)
+	{
+		std::vector<Net*> ajdacentNets = getElementAdjacentNets(&element);
+
+		Log(Log::DEBUG, false)<<"Connection count for "<<element.getChar()<<" is "<<ajdacentNets.size();
+		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[startingIndex]) != ajdacentNets.end())
+			Log(Log::DEBUG, false)<<" includes first net";
+		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[endIndex]) != ajdacentNets.end())
+			Log(Log::DEBUG, false)<<" includes last net";
+		Log(Log::DEBUG, false)<<'\n';
+
+		if(getElementAdjacentNets(&element).size() < 2)
+			dangling = true;
+	}
+
+	if(dangling)
+		Log(Log::WARN)<<"A dangling element is present";
+	else
+		Log(Log::DEBUG)<<"All elements fully connected";
+
+	removeUnconnectedNets();
 
 	std::string str;
 	std::vector<const Element*> handledElements;
@@ -450,5 +501,19 @@ void Circut::parseString(DirectionHint hint)
 	balanceBrackets(str);
 	model = str;
 
-	Log(Log::INFO)<<"Parsed string: "<<str;
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::Mat visulization = ciructImage();
+		for(size_t i = 0; i < handledElements.size(); ++i)
+		{
+			const Element* const element = handledElements[i];
+			cv::putText(visulization, std::to_string(i),
+			cv::Point(element->rect.x, element->rect.y+element->rect.height+3),
+			          cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(0,0,0), 1, cv::LINE_8, false);
+		}
+		cv::imshow("Viewer", visulization);
+		cv::waitKey(0);
+	}
+
+	return model;
 }

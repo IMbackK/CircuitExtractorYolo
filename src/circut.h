@@ -36,6 +36,10 @@ public:
 
 class Net
 {
+private:
+	std::vector<size_t> connectedEndpointIndecies;
+	uint64_t id;
+
 public:
 	std::vector<cv::Point2i> endpoints;
 	std::vector<cv::Point2i> nodes;
@@ -49,14 +53,17 @@ public:
 	void draw(cv::Mat& image, const cv::Scalar* color = nullptr) const;
 	void computePoints(double tollerance = 10);
 	void coordScale(double factor);
-	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN);
+	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN, double tolleranceFactor = 1.0);
 	cv::Rect endpointRect() const;
+	cv::Point center() const;
 };
 
 class Circut
 {
-public:
+private:
 	std::string model;
+public:
+
 	float prob;
 	cv::Mat image;
 	std::vector<Element> elements;
@@ -75,9 +82,11 @@ private:
 	                      std::vector<const Element*>& handled, size_t netIndex,
 	                      size_t endNetIndex, size_t startNetIndex);
 
+	std::vector<Net*> getElementAdjacentNets(const Element* const element);
+
 public:
 	cv::Mat ciructImage() const;
 	void detectElements(Yolo5* yolo);
 	void detectNets(DirectionHint hint = C_DIRECTION_UNKOWN);
-	void parseString(DirectionHint hint = C_DIRECTION_UNKOWN);
+	std::string getString(DirectionHint hint = C_DIRECTION_UNKOWN);
 };

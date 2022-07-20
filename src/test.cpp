@@ -130,23 +130,20 @@ void algoLine(cv::Mat& image)
 
 	Circut circut;
 	circut.image = image;
-	if(Log::level == Log::SUPERDEBUG)
-	{
-		cv::imshow("Viewer", circut.image);
-		cv::waitKey(0);
-	}
 
 	circut.detectElements(yolo);
 
 	circut.detectNets();
 
-	if(Log::level == Log::SUPERDEBUG)
+	/*if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
-	}
+	}*/
 
-	circut.parseString();
+	std::string modelString = circut.getString();
+
+	Log(Log::INFO)<<"Parsed string: "<<modelString;
 }
 
 int main(int argc, char** argv)

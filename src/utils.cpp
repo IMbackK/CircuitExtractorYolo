@@ -49,7 +49,7 @@ void drawLineSegments(cv::Mat& in, cv::InputArray lines, cv::Scalar color)
 			const cv::Vec4f& v = _lines.at<cv::Vec4f>(i);
 			const cv::Point2f b(v[0], v[1]);
 			const cv::Point2f e(v[2], v[3]);
-			cv::line(in, b, e, color, 2);
+			cv::line(in, b, e, color, 1);
 		}
 	}
 	else
@@ -59,7 +59,7 @@ void drawLineSegments(cv::Mat& in, cv::InputArray lines, cv::Scalar color)
 			const cv::Vec4i& v = _lines.at<cv::Vec4i>(i);
 			const cv::Point2i b(v[0], v[1]);
 			const cv::Point2i e(v[2], v[3]);
-			cv::line(in, b, e, color, 2);
+			cv::line(in, b, e, color, 1);
 		}
 	}
 }
@@ -118,13 +118,13 @@ double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB)
 	return minDist;
 }
 
-cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent)
+cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, int minimumPad)
 {
 	cv::Rect out;
 	if(xPadPercent > 0)
 	{
-		out.x = rect.x - std::max(static_cast<int>(rect.width*xPadPercent), 1);
-		out.width = std::max(static_cast<int>(rect.width*(1+xPadPercent)), rect.width+1);
+		out.x = rect.x - std::max(static_cast<int>(rect.width*xPadPercent), minimumPad);
+		out.width = std::max(static_cast<int>(rect.width*(1+xPadPercent)), rect.width+minimumPad);
 	}
 	else
 	{
@@ -134,8 +134,8 @@ cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent)
 
 	if(yPadPercent > 0)
 	{
-		out.y = rect.y - std::max(static_cast<int>(rect.height*yPadPercent), 1);
-		out.height = std::max(static_cast<int>(rect.height*(1+xPadPercent)), rect.height+1);
+		out.y = rect.y - std::max(static_cast<int>(rect.height*yPadPercent), minimumPad);
+		out.height = std::max(static_cast<int>(rect.height*(1+xPadPercent)), rect.height+minimumPad);
 	}
 	else
 	{
