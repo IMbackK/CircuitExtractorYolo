@@ -284,7 +284,7 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		work.copyTo(vizualization);
-		drawLineSegments(vizualization, lines );
+		drawLineSegments(vizualization, lines);
 		cv::imshow("Viewer", vizualization);
 		cv::waitKey(0);
 	}
