@@ -124,7 +124,7 @@ cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, i
 	if(xPadPercent > 0)
 	{
 		out.x = rect.x - std::max(static_cast<int>(rect.width*xPadPercent), minimumPad);
-		out.width = std::max(static_cast<int>(rect.width*(1+xPadPercent)), rect.width+minimumPad);
+		out.width = std::max(static_cast<int>(rect.width*(1+xPadPercent*2)), rect.width+minimumPad*2);
 	}
 	else
 	{
@@ -135,7 +135,7 @@ cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, i
 	if(yPadPercent > 0)
 	{
 		out.y = rect.y - std::max(static_cast<int>(rect.height*yPadPercent), minimumPad);
-		out.height = std::max(static_cast<int>(rect.height*(1+xPadPercent)), rect.height+minimumPad);
+		out.height = std::max(static_cast<int>(rect.height*(1+xPadPercent*2)), rect.height+minimumPad*2);
 	}
 	else
 	{

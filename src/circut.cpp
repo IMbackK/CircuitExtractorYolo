@@ -37,17 +37,17 @@ static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, do
 	switch(hint)
 	{
 		case C_DIRECTION_HORIZ:
-			padX = 0.3*tolleranceFactor;
+			padX = 0.15*tolleranceFactor;
 			padY = 0;
 			break;
 		case C_DIRECTION_VERT:
 			padX = 0;
-			padY = 0.3*tolleranceFactor;
+			padY = 0.15*tolleranceFactor;
 			break;
 		case C_DIRECTION_UNKOWN:
 		default:
-			padX = 0.3*tolleranceFactor;
-			padY = 0.15*tolleranceFactor;
+			padX = 0.15*tolleranceFactor;
+			padY = 0.075*tolleranceFactor;
 			break;
 	}
 	return std::pair<double, double>(padX, padY);
@@ -179,6 +179,7 @@ cv::Mat Circut::ciructImage() const
 	{
 		auto padding = getRectXYPaddingPercents(C_DIRECTION_UNKOWN, 1);
 		cv::rectangle(visulization, padRect(elements[i].rect, padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
+		cv::rectangle(visulization, elements[i].rect, cv::Scalar(0,255,255), 1);
 		std::string labelStr = std::to_string(static_cast<int>(elements[i].type)) +
 			" P: " +  std::to_string(elements[i].prob);
 		cv::putText(visulization, labelStr,
@@ -363,7 +364,7 @@ int64_t Circut::getOpositNetIndex(const Element* element, Net* net) const
 	}
 	return -1;
 }
-
+handled
 std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 {
 	std::vector<Net*> out;
@@ -498,19 +499,25 @@ std::string Circut::getString(DirectionHint hint)
 	std::string str;
 	std::vector<const Element*> handledElements;
 	for(const Element* element : nets[startingIndex].elements)
+	{
+		if(std::find(handledElements.begin(), handledElements.end(), element) != handledElements.end())
+			continue;
 		getStringForPath(str, element, handledElements, startingIndex, endIndex, startingIndex);
+	}
 	balanceBrackets(str);
 	model = str;
 
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::Mat visulization = ciructImage();
+		int offset = 0;
 		for(size_t i = 0; i < handledElements.size(); ++i)
 		{
 			const Element* const element = handledElements[i];
 			cv::putText(visulization, std::to_string(i),
-			cv::Point(element->rect.x, element->rect.y+element->rect.height+3),
+			cv::Point(element->rect.x+offset, element->rect.y+element->rect.height+5),
 			          cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(0,0,0), 1, cv::LINE_8, false);
+			offset+=5;
 		}
 		cv::imshow("Viewer", visulization);
 		cv::waitKey(0);

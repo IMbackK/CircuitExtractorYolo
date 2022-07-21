@@ -12,6 +12,7 @@ typedef enum {
 	E_TYPE_P,
 	E_TYPE_W,
 	E_TYPE_SOURCE,
+	E_TYPE_COMPOSIT,
 	E_TYPE_UNKOWN,
 	E_TYPE_COUNT,
 } ElementType;
@@ -24,6 +25,8 @@ typedef enum {
 
 class Element
 {
+private:
+
 public:
 	ElementType type;
 	cv::Rect rect;
@@ -31,7 +34,7 @@ public:
 	float prob;
 
 public:
-	char getChar() const;
+	std::string getString() const;
 };
 
 class Net
