@@ -177,7 +177,8 @@ cv::Mat Circut::ciructImage() const
 	image.copyTo(visulization);
 	for(size_t i = 0; i < elements.size(); ++i)
 	{
-		cv::rectangle(visulization, elements[i].rect, cv::Scalar(0,0,255), 2);
+		auto padding = getRectXYPaddingPercents(C_DIRECTION_UNKOWN, 1);
+		cv::rectangle(visulization, padRect(elements[i].rect, padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
 		std::string labelStr = std::to_string(static_cast<int>(elements[i].type)) +
 			" P: " +  std::to_string(elements[i].prob);
 		cv::putText(visulization, labelStr,
