@@ -26,14 +26,18 @@ typedef enum {
 class Element
 {
 private:
-
-public:
 	ElementType type;
 	cv::Rect rect;
-	cv::Mat image;
 	float prob;
 
 public:
+	cv::Mat image;
+
+public:
+	Element(ElementType type, cv::Rect rect, float prob = 1);
+	ElementType getType() const;
+	cv::Rect getRect() const;
+	double getProb() const;
 	std::string getString() const;
 };
 

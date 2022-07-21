@@ -8,26 +8,46 @@
 #include "utils.h"
 #include "linedetection.h"
 
-char Element::getChar() const
+std::string Element::getString() const
 {
 	switch(type)
 	{
 		case E_TYPE_R:
-			return 'r';
+			return "r";
 		case E_TYPE_C:
-			return 'c';
+			return "c";
 		case E_TYPE_L:
-			return 'l';
+			return "l";
 		case E_TYPE_P:
-			return 'p';
+			return "p";
 		case E_TYPE_W:
-			return 'w';
+			return "w";
 		case E_TYPE_SOURCE:
-			return 's';
+			return "s";
 		case E_TYPE_UNKOWN:
 		default:
-			return 'x';
+			return "x";
 	}
+}
+
+Element::Element(ElementType typeI, cv::Rect rectI, float probI): type(typeI), rect(rectI), prob(probI)
+{
+
+}
+
+ElementType Element::getType() const
+{
+	return type;
+}
+
+cv::Rect Element::getRect() const
+{
+	return rect;
+}
+
+double Element::getProb() const
+{
+	return prob;
 }
 
 static std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor)
@@ -133,7 +153,7 @@ void Net::coordScale(double factor)
 bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFactor)
 {
 	std::pair<double, double> padding = getRectXYPaddingPercents(hint, tolleranceFactor);
-	cv::Rect paddedRect = padRect(element->rect, padding.first, padding.second, 5*tolleranceFactor);
+	cv::Rect paddedRect = padRect(element->getRect(), padding.first, padding.second, 5*tolleranceFactor);
 
 	for(size_t i = 0; i < endpoints.size(); ++i)
 	{
@@ -178,12 +198,12 @@ cv::Mat Circut::ciructImage() const
 	for(size_t i = 0; i < elements.size(); ++i)
 	{
 		auto padding = getRectXYPaddingPercents(C_DIRECTION_UNKOWN, 1);
-		cv::rectangle(visulization, padRect(elements[i].rect, padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
-		cv::rectangle(visulization, elements[i].rect, cv::Scalar(0,255,255), 1);
-		std::string labelStr = std::to_string(static_cast<int>(elements[i].type)) +
-			" P: " +  std::to_string(elements[i].prob);
+		cv::rectangle(visulization, padRect(elements[i].getRect(), padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
+		cv::rectangle(visulization, elements[i].getRect(), cv::Scalar(0,255,255), 1);
+		std::string labelStr = std::to_string(static_cast<int>(elements[i].getType())) +
+			" P: " +  std::to_string(elements[i].getProb());
 		cv::putText(visulization, labelStr,
-			cv::Point(elements[i].rect.x, elements[i].rect.y-3),
+			cv::Point(elements[i].getRect().x, elements[i].getRect().y-3),
 			cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
 	}
 
@@ -219,11 +239,8 @@ void Circut::detectElements(Yolo5* yolo)
 	{
 		try
 		{
-			Element element;
+			Element element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
 			element.image = image(detection.rect);
-			element.type = static_cast<ElementType>(detection.classId);
-			element.rect = detection.rect;
-			element.prob = detection.prob;
 			elements.push_back(element);
 		}
 		catch(const cv::Exception& ex)
@@ -285,7 +302,7 @@ void Circut::detectNets(DirectionHint hint)
 	std::vector<cv::Vec4f> lines = lineDetect(image);
 
 	for(const Element& element : elements)
-		clipLinesAgainstRect(lines, element.rect);
+		clipLinesAgainstRect(lines, element.getRect());
 
 	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
 
@@ -364,7 +381,7 @@ int64_t Circut::getOpositNetIndex(const Element* element, Net* net) const
 	}
 	return -1;
 }
-handled
+
 std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 {
 	std::vector<Net*> out;
@@ -385,11 +402,11 @@ void Circut::getStringForPath(std::string& str, const Element* element, std::vec
 {
 	int64_t opposing = getOpositNetIndex(element, &nets[netIndex]);
 
-	if(element->type != E_TYPE_SOURCE && opposing >= 0)
+	if(element->getType() != E_TYPE_SOURCE && opposing >= 0)
 	{
-		const char ch = element->getChar();
+		std::string ch = element->getString();
 		Log(Log::SUPERDEBUG)<<"adding "<<ch;
-		str.push_back(ch);
+		str.append(ch);
 		handled.push_back(element);
 	}
 
@@ -478,7 +495,7 @@ std::string Circut::getString(DirectionHint hint)
 	{
 		std::vector<Net*> ajdacentNets = getElementAdjacentNets(&element);
 
-		Log(Log::DEBUG, false)<<"Connection count for "<<element.getChar()<<" is "<<ajdacentNets.size();
+		Log(Log::DEBUG, false)<<"Connection count for "<<element.getString()<<" is "<<ajdacentNets.size();
 		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[startingIndex]) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes first net";
 		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[endIndex]) != ajdacentNets.end())
@@ -515,7 +532,7 @@ std::string Circut::getString(DirectionHint hint)
 		{
 			const Element* const element = handledElements[i];
 			cv::putText(visulization, std::to_string(i),
-			cv::Point(element->rect.x+offset, element->rect.y+element->rect.height+5),
+			cv::Point(element->getRect().x+offset, element->getRect().y+element->getRect().height+5),
 			          cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(0,0,0), 1, cv::LINE_8, false);
 			offset+=5;
 		}
