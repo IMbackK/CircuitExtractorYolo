@@ -85,9 +85,9 @@ private:
 	size_t getStartingIndex(DirectionHint hint) const;
 	int64_t getOpositNetIndex(const Element* element, Net* net) const;
 	size_t getEndingIndex(DirectionHint hint) const;
-	void getStringForPath(std::string& str, const Element* element,
-	                      std::vector<const Element*>& handled, size_t netIndex,
-	                      size_t endNetIndex, size_t startNetIndex);
+	size_t appendStringForSerisPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex);
+	void appendStringForParalellPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex);
+	Element* findUaccountedPathStartingElement(DirectionHint hint, size_t start, size_t stop, std::vector<const Element*>& handled);
 
 	std::vector<Net*> getElementAdjacentNets(const Element* const element);
 

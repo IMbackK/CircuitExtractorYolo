@@ -398,7 +398,29 @@ std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 	return out;
 }
 
-void Circut::getStringForPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
+Element* Circut::findUaccountedPathStartingElement(DirectionHint hint, size_t start, size_t stop, std::vector<const Element*>& handled)
+{
+	for(Element* element : nets[start].elements)
+	{
+		if(std::find(handled.begin(), handled.end(), element) != handled.end())
+			continue;
+
+		size_t opposingIndex = getOpositNetIndex(element, &nets[start]);
+		if(opposingIndex == stop)
+			return element;
+
+		if(((hint == C_DIRECTION_HORIZ || hint == C_DIRECTION_UNKOWN) && (nets[start].center().x > nets[opposingIndex].center().x) ||
+			(hint == C_DIRECTION_VERT && (nets[start].center().y > nets[opposingIndex].center().y))))
+			continue;
+
+		if(findUaccountedPathStartingElement(hint, opposingIndex, stop, handled) != nullptr)
+			return element;
+	}
+
+	return nullptr;
+}
+
+size_t Circut::appendStringForSerisPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
 {
 	int64_t opposing = getOpositNetIndex(element, &nets[netIndex]);
 
@@ -410,20 +432,21 @@ void Circut::getStringForPath(std::string& str, const Element* element, std::vec
 		handled.push_back(element);
 	}
 
-	if(opposing == static_cast<int64_t>(endNetIndex))
-	{
-		if(nets[netIndex].elements.size() > 2 || (startNetIndex == netIndex && nets[netIndex].elements.size() > 1))
-		{
-			Log(Log::SUPERDEBUG)<<"adding (";
-			str.push_back('(');
-		}
-		Log(Log::SUPERDEBUG)<<"path finished return";
-		return;
-	}
-	else if(opposing < 0)
+	if(opposing < 0)
 	{
 		Log(Log::WARN)<<"Dangling element! return";
-		return;
+		return startNetIndex;
+	}
+	else if(nets[opposing].elements.size() > 2 || opposing == static_cast<int64_t>(endNetIndex) && nets[opposing].elements.size() == 2)
+	{
+		str.push_back(')');
+		Log(Log::WARN)<<"Finished Series return";
+		return opposing;
+	}
+	else if(opposing == static_cast<int64_t>(endNetIndex))
+	{
+		Log(Log::SUPERDEBUG)<<"path finished return";
+		return endNetIndex;
 	}
 
 	str.push_back('-');
@@ -439,7 +462,18 @@ void Circut::getStringForPath(std::string& str, const Element* element, std::vec
 			continue;
 		}
 
-		getStringForPath(str, elementL, handled, opposing, endNetIndex, startNetIndex);
+		appendStringForSerisPath(str, elementL, handled, opposing, endNetIndex, startNetIndex);
+	}
+}
+
+void Circut::appendStringForParalellPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
+{
+	str.push_back('(');
+	size_t seriesEndIndex = appendStringForSerisPath(str, element, handled, netIndex, endNetIndex, startNetIndex);
+
+	if(seriesEndIndex != endNetIndex && seriesEndIndex != startNetIndex)
+	{
+		findUaccountedPathStartingElement(C_DIRECTION_UNKOWN, netIndex, seriesEndIndex, handled);
 	}
 }
 
@@ -519,7 +553,8 @@ std::string Circut::getString(DirectionHint hint)
 	{
 		if(std::find(handledElements.begin(), handledElements.end(), element) != handledElements.end())
 			continue;
-		getStringForPath(str, element, handledElements, startingIndex, endIndex, startingIndex);
+		str.push_back('(');
+		appendStringForSerisPath(str, element, handledElements, startingIndex, endIndex, startingIndex);
 	}
 	balanceBrackets(str);
 	model = str;
