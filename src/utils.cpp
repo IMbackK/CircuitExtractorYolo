@@ -315,3 +315,26 @@ void printMat(const cv::Mat& mat, const Log::Level lvl)
 
 	std::cout<<std::defaultfloat;
 }
+
+std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor)
+{
+	double padX;
+	double padY;
+	switch(hint)
+	{
+		case C_DIRECTION_HORIZ:
+			padX = 0.15*tolleranceFactor;
+			padY = 0;
+			break;
+		case C_DIRECTION_VERT:
+			padX = 0;
+			padY = 0.15*tolleranceFactor;
+			break;
+		case C_DIRECTION_UNKOWN:
+		default:
+			padX = 0.15*tolleranceFactor;
+			padY = 0.075*tolleranceFactor;
+			break;
+	}
+	return std::pair<double, double>(padX, padY);
+}

@@ -5,6 +5,12 @@
 #include <utility>
 #include "log.h"
 
+typedef enum {
+	C_DIRECTION_HORIZ,
+	C_DIRECTION_VERT,
+	C_DIRECTION_UNKOWN
+} DirectionHint;
+
 bool pointInRect(const cv::Point2i& point, const cv::Rect& rect);
 
 bool pointIsOnLine(const cv::Point2i& point, const cv::Vec4f& line, double tollerance);
@@ -35,3 +41,5 @@ cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, i
 cv::Mat getMatPlane(cv::Mat& in, int plane);
 
 cv::Mat getMatPlane4d(cv::Mat& in, int plane);
+
+std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor);

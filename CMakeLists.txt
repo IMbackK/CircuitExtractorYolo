@@ -11,6 +11,8 @@ set(SRC_FILES
 	src/linedetection.cpp
 	src/utils.cpp
 	src/randomgen.cpp
+	src/element.cpp
+	src/net.cpp
 	)
 
 find_package(OpenCV REQUIRED)
