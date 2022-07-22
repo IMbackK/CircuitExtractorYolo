@@ -25,13 +25,13 @@ add_executable(${PROJECT_NAME} ${SRC_FILES} src/main.cpp)
 target_link_libraries( ${PROJECT_NAME} ${OpenCV_LIBS} ${POPPLER_LINK_LIBRARIES})
 target_include_directories(${PROJECT_NAME} PRIVATE  ${OpenCV_INCLUDE_DIRS} ${POPPLER_INCLUDE_DIRS})
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME})
-target_compile_options(${PROJECT_NAME} PRIVATE "-std=c++17" "-Wall" "-O2" "-g" "-fno-strict-aliasing" "-Wfatal-errors")
+target_compile_options(${PROJECT_NAME} PRIVATE "-std=c++20" "-Wall" "-O2" "-g" "-fno-strict-aliasing" "-Wfatal-errors")
 
 add_executable(${PROJECT_NAME}_test ${SRC_FILES} src/test.cpp)
 target_link_libraries( ${PROJECT_NAME}_test ${OpenCV_LIBS} ${POPPLER_LINK_LIBRARIES})
 target_include_directories(${PROJECT_NAME}_test PRIVATE  ${OpenCV_INCLUDE_DIRS} ${POPPLER_INCLUDE_DIRS})
 add_dependencies(${PROJECT_NAME}_test ${PROJECT_NAME})
-target_compile_options(${PROJECT_NAME}_test PRIVATE "-std=c++17" "-Wall" "-O2" "-g" "-fno-strict-aliasing" "-Wfatal-errors")
+target_compile_options(${PROJECT_NAME}_test PRIVATE "-std=c++20" "-Wall" "-O2" "-g" "-fno-strict-aliasing" "-Wfatal-errors")
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -s")
 
