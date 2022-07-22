@@ -1,8 +1,11 @@
 #include "circut.h"
 
+#include <cstdint>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <vector>
 
+#include "element.h"
 #include "log.h"
 #include "randomgen.h"
 #include "utils.h"
@@ -15,26 +18,26 @@ cv::Mat Circut::ciructImage() const
 	for(size_t i = 0; i < elements.size(); ++i)
 	{
 		auto padding = getRectXYPaddingPercents(C_DIRECTION_UNKOWN, 1);
-		cv::rectangle(visulization, padRect(elements[i].getRect(), padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
-		cv::rectangle(visulization, elements[i].getRect(), cv::Scalar(0,255,255), 1);
-		std::string labelStr = std::to_string(static_cast<int>(elements[i].getType())) +
-			" P: " +  std::to_string(elements[i].getProb());
+		cv::rectangle(visulization, padRect(elements[i]->getRect(), padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
+		cv::rectangle(visulization, elements[i]->getRect(), cv::Scalar(0,255,255), 1);
+		std::string labelStr = std::to_string(static_cast<int>(elements[i]->getType())) +
+			" P: " +  std::to_string(elements[i]->getProb());
 		cv::putText(visulization, labelStr,
-			cv::Point(elements[i].getRect().x, elements[i].getRect().y-3),
+			cv::Point(elements[i]->getRect().x, elements[i]->getRect().y-3),
 			cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
 	}
 
-	size_t firstNetIndex = getStartingIndex(C_DIRECTION_UNKOWN);
-	size_t lastNetIndex = getEndingIndex(C_DIRECTION_UNKOWN);
+	uint64_t firstNetId = getStartingNetId(C_DIRECTION_UNKOWN);
+	uint64_t lastNetId = getEndingNetId(C_DIRECTION_UNKOWN);
 
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
-		if(i == firstNetIndex)
+		if(nets[i].getId() == firstNetId)
 		{
 			cv::Scalar color(255,0,0);
 			nets[i].draw(visulization, &color);
 		}
-		else if(i == lastNetIndex)
+		else if(nets[i].getId() == lastNetId)
 		{
 			cv::Scalar color(0,0,255);
 			nets[i].draw(visulization, &color);
@@ -56,8 +59,8 @@ void Circut::detectElements(Yolo5* yolo)
 	{
 		try
 		{
-			Element element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
-			element.image = image(detection.rect);
+			Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
+			element->image = image(detection.rect);
 			elements.push_back(element);
 		}
 		catch(const cv::Exception& ex)
@@ -118,8 +121,8 @@ void Circut::detectNets(DirectionHint hint)
 
 	std::vector<cv::Vec4f> lines = lineDetect(image);
 
-	for(const Element& element : elements)
-		clipLinesAgainstRect(lines, element.getRect());
+	for(const Element* element : elements)
+		clipLinesAgainstRect(lines, element->getRect());
 
 	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
 
@@ -141,7 +144,7 @@ void Circut::removeUnconnectedNets()
 	}
 }
 
-size_t Circut::getStartingIndex(DirectionHint hint) const
+uint64_t Circut::getStartingNetId(DirectionHint hint) const
 {
 	size_t leftMostIndex = 0;
 	int leftMostPoint = std::numeric_limits<int>::max();
@@ -159,10 +162,10 @@ size_t Circut::getStartingIndex(DirectionHint hint) const
 			leftMostIndex = i;
 		}
 	}
-	return leftMostIndex;
+	return nets[leftMostIndex].getId();;
 }
 
-size_t Circut::getEndingIndex(DirectionHint hint) const
+uint64_t Circut::getEndingNetId(DirectionHint hint) const
 {
 	size_t rightMostIndex = 0;
 	int rightMostPoint = 0;
@@ -180,29 +183,28 @@ size_t Circut::getEndingIndex(DirectionHint hint) const
 			rightMostIndex = i;
 		}
 	}
-	return rightMostIndex;
+	return nets[rightMostIndex].getId();
 }
 
-int64_t Circut::getOpositNetIndex(const Element* element, Net* net) const
+uint64_t Circut::getOpositNetId(const Element* element, const Net& net, const std::vector<Net>& netsL)
 {
-	for(size_t i = 0; i < nets.size(); ++i)
+	for(size_t i = 0; i < netsL.size(); ++i)
 	{
-		if(&nets[i] == net)
+		if(netsL[i] == net)
 			continue;
 
-		for(size_t j = 0; j < nets[i].elements.size(); ++j)
+		for(size_t j = 0; j < netsL[i].elements.size(); ++j)
 		{
-			if(element == nets[i].elements[j])
-				return static_cast<int64_t>(i);
+			if(element == netsL[i].elements[j])
+				netsL[i].getId();
 		}
 	}
-	return -1;
+	return 0;
 }
 
 std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 {
 	std::vector<Net*> out;
-
 	for(Net& net : nets)
 	{
 		for(const Element* netElement: net.elements)
@@ -211,111 +213,83 @@ std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 				out.push_back(&net);
 		}
 	}
-
 	return out;
 }
 
-Element* Circut::findUaccountedPathStartingElement(DirectionHint hint, size_t start, size_t stop, std::vector<const Element*>& handled)
+Net* Circut::netFromId(std::vector<Net>& nets, uint64_t id)
 {
-	for(Element* element : nets[start].elements)
+	for(size_t i = 0; i < nets.size(); ++i)
 	{
-		if(std::find(handled.begin(), handled.end(), element) != handled.end())
-			continue;
-
-		size_t opposingIndex = getOpositNetIndex(element, &nets[start]);
-		if(opposingIndex == stop)
-			return element;
-
-		if(((hint == C_DIRECTION_HORIZ || hint == C_DIRECTION_UNKOWN) && (nets[start].center().x > nets[opposingIndex].center().x) ||
-			(hint == C_DIRECTION_VERT && (nets[start].center().y > nets[opposingIndex].center().y))))
-			continue;
-
-		if(findUaccountedPathStartingElement(hint, opposingIndex, stop, handled) != nullptr)
-			return element;
+		if(nets[i].getId() == id)
+			return &nets[i];
 	}
-
 	return nullptr;
 }
 
-size_t Circut::appendStringForSerisPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
+bool Circut::colapseSerial(std::vector<Net>& nets, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId)
 {
-	int64_t opposing = getOpositNetIndex(element, &nets[netIndex]);
-
-	if(element->getType() != E_TYPE_SOURCE && opposing >= 0)
+	for(size_t i = 0; i < nets.size(); ++i)
 	{
-		std::string ch = element->getString();
-		Log(Log::SUPERDEBUG)<<"adding "<<ch;
-		str.append(ch);
-		handled.push_back(element);
-	}
-
-	if(opposing < 0)
-	{
-		Log(Log::WARN)<<"Dangling element! return";
-		return startNetIndex;
-	}
-	else if(nets[opposing].elements.size() > 2 || opposing == static_cast<int64_t>(endNetIndex) && nets[opposing].elements.size() == 2)
-	{
-		str.push_back(')');
-		Log(Log::WARN)<<"Finished Series return";
-		return opposing;
-	}
-	else if(opposing == static_cast<int64_t>(endNetIndex))
-	{
-		Log(Log::SUPERDEBUG)<<"path finished return";
-		return endNetIndex;
-	}
-
-	str.push_back('-');
-
-	for(const Element* elementL : nets[opposing].elements)
-	{
-		if(elementL == element)
+		if(nets[i].getId() == startingId || nets[i].getId() == endingId)
 			continue;
-
-		if(std::find(handled.begin(), handled.end(), elementL) != handled.end())
+		if(nets[i].elementCount() == 2)
 		{
-			str.push_back(')');
-			continue;
+			Element* join = new Element(*nets[i].elements[0], *nets[i].elements[1], true);
+			joinedElements.push_back(join);
+
+			Net* left = netFromId(nets, getOpositNetId(nets[i].elements[0], nets[i], nets));
+			if(left)
+			{
+				std::erase(left->elements, nets[i].elements[0]);
+				left->elements.push_back(join);
+			}
+
+			Net* right = netFromId(nets, getOpositNetId(nets[i].elements[1], nets[i], nets));
+			if(right)
+			{
+				std::erase(right->elements, nets[i].elements[1]);
+				right->elements.push_back(join);
+			}
+
+			nets.erase(nets.begin() + i);
+			return true;
 		}
-
-		appendStringForSerisPath(str, elementL, handled, opposing, endNetIndex, startNetIndex);
 	}
+	return false;
 }
 
-void Circut::appendStringForParalellPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex)
+bool Circut::colapseParallel(std::vector<Net>& nets, std::vector<Element*>& joinedElements)
 {
-	str.push_back('(');
-	size_t seriesEndIndex = appendStringForSerisPath(str, element, handled, netIndex, endNetIndex, startNetIndex);
-
-	if(seriesEndIndex != endNetIndex && seriesEndIndex != startNetIndex)
+	for(size_t i = 0; i < nets.size(); ++i)
 	{
-		findUaccountedPathStartingElement(C_DIRECTION_UNKOWN, netIndex, seriesEndIndex, handled);
-	}
-}
+		if(nets[i].elementCount() > 2)
+		{
+			for(Element* elementA : nets[i].elements)
+			{
+				for(Element* elementB : nets[i].elements)
+				{
+					if(elementA == elementB)
+						continue;
+					uint64_t idElA = getOpositNetId(elementA, nets[i], nets);
+					Net* opposingNet = netFromId(nets, idElA);
+					if(opposingNet && idElA == getOpositNetId(elementB, nets[i], nets))
+					{
+						Element* join = new Element(*elementA, *elementB, false);
+						joinedElements.push_back(join);
+						std::erase(nets[i].elements, elementA);
+						std::erase(nets[i].elements, elementB);
+						std::erase(opposingNet->elements, elementA);
+						std::erase(opposingNet->elements, elementB);
 
-void Circut::balanceBrackets(std::string& str)
-{
-	int bracketCount = 0;
-
-	for(const char ch : str)
-	{
-		if(ch == '(')
-			++bracketCount;
-		else if(ch == ')')
-			--bracketCount;
+						nets[i].elements.push_back(join);
+						opposingNet->elements.push_back(join);
+						return true;
+					}
+				}
+			}
+		}
 	}
-
-	if(bracketCount < 0)
-	{
-		Log(Log::ERROR)<<"Invalid model string parsed for circut";
-		assert(bracketCount >= 0);
-	}
-
-	for(int i = 0; i < bracketCount; ++i)
-	{
-		str.push_back(')');
-	}
+	return false;
 }
 
 std::string Circut::getString(DirectionHint hint)
@@ -323,37 +297,37 @@ std::string Circut::getString(DirectionHint hint)
 	if(!model.empty())
 		return model;
 
-	size_t startingIndex = getStartingIndex(hint);
-	size_t endIndex = getEndingIndex(hint);
+	uint64_t startingNetId = getStartingNetId(hint);
+	uint64_t endingNetId = getStartingNetId(hint);
 
 	for(Net& net : nets)
 	{
-		for(Element& element : elements)
-			net.addElement(&element, hint);
+		for(Element* element : elements)
+			net.addElement(element, hint);
 	}
 
-	for(Element& element : elements)
+	for(Element* element : elements)
 	{
-		if(getElementAdjacentNets(&element).size() < 2)
+		if(getElementAdjacentNets(element).size() < 2)
 		{
 			for(Net& net : nets)
-				net.addElement(&element, hint, 3);
+				net.addElement(element, hint, 3);
 		}
 	}
 
 	bool dangling = false;
-	for(Element& element : elements)
+	for(Element* element : elements)
 	{
-		std::vector<Net*> ajdacentNets = getElementAdjacentNets(&element);
+		std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
 
-		Log(Log::DEBUG, false)<<"Connection count for "<<element.getString()<<" is "<<ajdacentNets.size();
-		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[startingIndex]) != ajdacentNets.end())
+		Log(Log::DEBUG, false)<<"Connection count for "<<element->getString()<<" is "<<ajdacentNets.size();
+		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), netFromId(nets, startingNetId)) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes first net";
-		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), &nets[endIndex]) != ajdacentNets.end())
+		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), netFromId(nets, endingNetId)) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes last net";
 		Log(Log::DEBUG, false)<<'\n';
 
-		if(getElementAdjacentNets(&element).size() < 2)
+		if(getElementAdjacentNets(element).size() < 2)
 			dangling = true;
 	}
 
@@ -365,32 +339,40 @@ std::string Circut::getString(DirectionHint hint)
 	removeUnconnectedNets();
 
 	std::string str;
-	std::vector<const Element*> handledElements;
-	for(const Element* element : nets[startingIndex].elements)
-	{
-		if(std::find(handledElements.begin(), handledElements.end(), element) != handledElements.end())
-			continue;
-		str.push_back('(');
-		appendStringForSerisPath(str, element, handledElements, startingIndex, endIndex, startingIndex);
-	}
-	balanceBrackets(str);
-	model = str;
+	std::vector<Net> netsTmp = nets;
+	std::vector<Element*> joinedElements;
 
-	if(Log::level == Log::SUPERDEBUG)
+	while(true)
 	{
-		cv::Mat visulization = ciructImage();
-		int offset = 0;
-		for(size_t i = 0; i < handledElements.size(); ++i)
+		bool progress = false;
+		while(true)
 		{
-			const Element* const element = handledElements[i];
-			cv::putText(visulization, std::to_string(i),
-			cv::Point(element->getRect().x+offset, element->getRect().y+element->getRect().height+5),
-			          cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(0,0,0), 1, cv::LINE_8, false);
-			offset+=5;
+			bool ret = colapseSerial(netsTmp, joinedElements, startingNetId, endingNetId);
+			if(ret)
+				progress = true;
+			if(!ret)
+				break;
 		}
-		cv::imshow("Viewer", visulization);
-		cv::waitKey(0);
+
+		while(true)
+		{
+			bool ret = colapseParallel(netsTmp, joinedElements);
+			if(ret)
+				progress = true;
+			if(!ret)
+				break;
+		}
+		if(!progress)
+			break;
 	}
+
+	model = netsTmp[0].elements[0]->getString();
 
 	return model;
+}
+
+Circut::~Circut()
+{
+	for(Element* element : elements)
+		delete element;
 }

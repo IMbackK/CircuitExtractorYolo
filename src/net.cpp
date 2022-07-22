@@ -1,9 +1,15 @@
 #include "net.h"
 
+#include <cstdint>
 #include <opencv2/imgproc.hpp>
 
 #include "randomgen.h"
 #include "utils.h"
+
+Net::Net()
+{
+	id = rd::uid();
+}
 
 void Net::draw(cv::Mat& image, const cv::Scalar* color) const
 {
@@ -121,4 +127,19 @@ cv::Point Net::center() const
 {
 	cv::Rect rect = endpointRect();
 	return cv::Point(rect.x+rect.width/2, rect.y+rect.height/2);
+}
+
+uint64_t Net::getId() const
+{
+	return id;
+}
+
+bool Net::operator==(const Net& net) const
+{
+	return net.getId() == id;
+}
+
+size_t Net::elementCount() const
+{
+	return elements.size();
 }

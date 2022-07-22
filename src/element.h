@@ -23,12 +23,14 @@ private:
 	ElementType type;
 	cv::Rect rect;
 	float prob;
+	std::string string;
 
 public:
 	cv::Mat image;
 
 public:
-	Element(ElementType type, cv::Rect rect, float prob = 1);
+	Element(ElementType type = E_TYPE_UNKOWN, cv::Rect rect = cv::Rect(), float prob = 1);
+	Element(const Element& a, const Element& b, bool serial = true);
 	ElementType getType() const;
 	cv::Rect getRect() const;
 	double getProb() const;

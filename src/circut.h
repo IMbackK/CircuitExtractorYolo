@@ -16,26 +16,26 @@ public:
 
 	float prob;
 	cv::Mat image;
-	std::vector<Element> elements;
+	std::vector<Element*> elements;
 	std::vector<Net> nets;
 
 private:
 	static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance);
 	static std::vector<Net> sortLinesIntoNets(std::vector<cv::Vec4f> lines, double tollerance);
-	static void balanceBrackets(std::string& str);
+	static Net* netFromId(std::vector<Net>& nets, uint64_t id);
+	static bool colapseSerial(std::vector<Net>& nets, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId);
+	static bool colapseParallel(std::vector<Net>& nets, std::vector<Element*>& joinedElements);
+	static uint64_t getOpositNetId(const Element* element, const Net& net, const std::vector<Net>& netsL);
 
 	void removeUnconnectedNets();
-	size_t getStartingIndex(DirectionHint hint) const;
-	int64_t getOpositNetIndex(const Element* element, Net* net) const;
-	size_t getEndingIndex(DirectionHint hint) const;
+	uint64_t getStartingNetId(DirectionHint hint) const;
+	uint64_t getEndingNetId(DirectionHint hint) const;
 	std::vector<Net*> getElementAdjacentNets(const Element* const element);
-	size_t appendStringForSerisPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex);
-	void appendStringForParalellPath(std::string& str, const Element* element, std::vector<const Element*>& handled, size_t netIndex, size_t endNetIndex, size_t startNetIndex);
-	Element* findUaccountedPathStartingElement(DirectionHint hint, size_t start, size_t stop, std::vector<const Element*>& handled);
 
 public:
 	cv::Mat ciructImage() const;
 	void detectElements(Yolo5* yolo);
 	void detectNets(DirectionHint hint = C_DIRECTION_UNKOWN);
 	std::string getString(DirectionHint hint = C_DIRECTION_UNKOWN);
+	~Circut();
 };
