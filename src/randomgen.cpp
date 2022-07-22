@@ -1,19 +1,19 @@
 #include "randomgen.h"
 #include <assert.h>
 #include <cstddef>
-#include <cstdint>
 #include <random>
+#include <limits>
 
 static std::default_random_engine randomEngine;
 static std::uniform_real_distribution<double> dist(0, 1);
-static std::uniform_int_distribution<size_t> distSt(0, SIZE_MAX);
+static std::uniform_int_distribution<size_t> distSt(1, std::numeric_limits<uint64_t>::max());
 
 double rd::rand(double max)
 {
 	return dist(randomEngine)*max;
 }
 
-size_t rd::uid()
+uint64_t rd::uid()
 {
 	return distSt(randomEngine);
 }

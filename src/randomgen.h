@@ -1,10 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace rd
 {
 double rand(double max = 1);
 void init();
-size_t uid();
+uint64_t uid();
 }
