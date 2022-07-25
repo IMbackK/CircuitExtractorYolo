@@ -10,9 +10,9 @@ class Yolo5
 public:
 	static constexpr int TRAIN_SIZE_X = 640;
 	static constexpr int TRAIN_SIZE_Y = 640;
-	static constexpr double DETECTION_THRESH = 0.25;
-	static constexpr double NMS_THRESH = 0.4;
-	static constexpr double SCORE_THRES = 0.5;
+	static constexpr double DETECTION_THRESH = 0.15;
+	static constexpr double NMS_THRESH = 0.3;
+	static constexpr double SCORE_THRES = 0.3;
 	static constexpr int YOLO_N_VECTOR_DEPTH = 25200;
 
 	struct DetectedClass
