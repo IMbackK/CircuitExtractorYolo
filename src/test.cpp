@@ -135,11 +135,11 @@ void algoLine(cv::Mat& image)
 
 	circut.detectNets();
 
-	/*if(Log::level == Log::SUPERDEBUG)
+	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
-	}*/
+	}
 
 	std::string modelString = circut.getString();
 

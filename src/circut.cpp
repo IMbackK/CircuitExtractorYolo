@@ -20,11 +20,10 @@ cv::Mat Circut::ciructImage() const
 		auto padding = getRectXYPaddingPercents(C_DIRECTION_UNKOWN, 1);
 		cv::rectangle(visulization, padRect(elements[i]->getRect(), padding.first, padding.second, 5), cv::Scalar(0,0,255), 2);
 		cv::rectangle(visulization, elements[i]->getRect(), cv::Scalar(0,255,255), 1);
-		std::string labelStr = std::to_string(static_cast<int>(elements[i]->getType())) +
-			" P: " +  std::to_string(elements[i]->getProb());
+		std::string labelStr = elements[i]->getString();
 		cv::putText(visulization, labelStr,
 			cv::Point(elements[i]->getRect().x, elements[i]->getRect().y-3),
-			cv::FONT_HERSHEY_PLAIN, 0.75, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
+			cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255,0,0), 1, cv::LINE_8, false);
 	}
 
 	uint64_t firstNetId = getStartingNetId(C_DIRECTION_UNKOWN);
@@ -146,7 +145,7 @@ void Circut::removeUnconnectedNets()
 
 uint64_t Circut::getStartingNetId(DirectionHint hint) const
 {
-	size_t leftMostIndex = 0;
+	int leftMostIndex = 0;
 	int leftMostPoint = std::numeric_limits<int>::max();
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
@@ -162,7 +161,7 @@ uint64_t Circut::getStartingNetId(DirectionHint hint) const
 			leftMostIndex = i;
 		}
 	}
-	return nets[leftMostIndex].getId();;
+	return nets[leftMostIndex].getId();
 }
 
 uint64_t Circut::getEndingNetId(DirectionHint hint) const
@@ -196,7 +195,7 @@ uint64_t Circut::getOpositNetId(const Element* element, const Net& net, const st
 		for(size_t j = 0; j < netsL[i].elements.size(); ++j)
 		{
 			if(element == netsL[i].elements[j])
-				netsL[i].getId();
+				return netsL[i].getId();
 		}
 	}
 	return 0;
@@ -216,72 +215,87 @@ std::vector<Net*> Circut::getElementAdjacentNets(const Element* const element)
 	return out;
 }
 
-Net* Circut::netFromId(std::vector<Net>& nets, uint64_t id)
+Net* Circut::netFromId(std::vector<Net>& netsL, uint64_t id)
 {
-	for(size_t i = 0; i < nets.size(); ++i)
+	for(size_t i = 0; i < netsL.size(); ++i)
 	{
-		if(nets[i].getId() == id)
-			return &nets[i];
+		if(netsL[i].getId() == id)
+			return &netsL[i];
 	}
 	return nullptr;
 }
 
-bool Circut::colapseSerial(std::vector<Net>& nets, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId)
+bool Circut::colapseSerial(std::vector<Net>& netsL, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId)
 {
-	for(size_t i = 0; i < nets.size(); ++i)
+	for(size_t i = 0; i < netsL.size(); ++i)
 	{
-		if(nets[i].getId() == startingId || nets[i].getId() == endingId)
+		if(netsL[i].getId() == startingId || netsL[i].getId() == endingId)
 			continue;
-		if(nets[i].elementCount() == 2)
+		if(netsL[i].elementCount() == 2)
 		{
-			Element* join = new Element(*nets[i].elements[0], *nets[i].elements[1], true);
+			Element* join = new Element(*netsL[i].elements[0], *netsL[i].elements[1], true);
 			joinedElements.push_back(join);
 
-			Net* left = netFromId(nets, getOpositNetId(nets[i].elements[0], nets[i], nets));
+			uint64_t oppositId = getOpositNetId(netsL[i].elements[0], netsL[i], netsL);
+			Net* left = netFromId(netsL, oppositId);
 			if(left)
 			{
-				std::erase(left->elements, nets[i].elements[0]);
+				std::erase(left->elements, netsL[i].elements[0]);
+				std::erase(left->elements, netsL[i].elements[1]);
 				left->elements.push_back(join);
 			}
-
-			Net* right = netFromId(nets, getOpositNetId(nets[i].elements[1], nets[i], nets));
-			if(right)
+			else
 			{
-				std::erase(right->elements, nets[i].elements[1]);
-				right->elements.push_back(join);
+				Log(Log::ERROR)<<"Invalid net for id: "<<oppositId;
 			}
 
-			nets.erase(nets.begin() + i);
+			oppositId = getOpositNetId(netsL[i].elements[1], netsL[i], netsL);
+			Net* right = netFromId(netsL, oppositId);
+			if(right)
+			{
+				std::erase(right->elements, netsL[i].elements[0]);
+				std::erase(right->elements, netsL[i].elements[1]);
+				right->elements.push_back(join);
+			}
+			else
+			{
+				Log(Log::ERROR)<<"Invalid net for id: "<<oppositId;
+			}
+
+			netsL.erase(netsL.begin() + i);
 			return true;
 		}
 	}
 	return false;
 }
 
-bool Circut::colapseParallel(std::vector<Net>& nets, std::vector<Element*>& joinedElements)
+bool Circut::colapseParallel(std::vector<Net>& netsL, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId)
 {
-	for(size_t i = 0; i < nets.size(); ++i)
+	for(size_t i = 0; i < netsL.size(); ++i)
 	{
-		if(nets[i].elementCount() > 2)
+		if(netsL[i].elementCount() > 2 ||
+			(netsL[i].getId() == startingId && netsL[i].elementCount() == 2) ||
+			(netsL[i].getId() == endingId && netsL[i].elementCount() == 2))
 		{
-			for(Element* elementA : nets[i].elements)
+			for(Element* elementA : netsL[i].elements)
 			{
-				for(Element* elementB : nets[i].elements)
+				for(Element* elementB : netsL[i].elements)
 				{
 					if(elementA == elementB)
 						continue;
-					uint64_t idElA = getOpositNetId(elementA, nets[i], nets);
-					Net* opposingNet = netFromId(nets, idElA);
-					if(opposingNet && idElA == getOpositNetId(elementB, nets[i], nets))
+
+					uint64_t idElA = getOpositNetId(elementA, netsL[i], netsL);
+					Net* opposingNet = netFromId(netsL, idElA);
+					if(opposingNet && idElA == getOpositNetId(elementB, netsL[i], netsL))
 					{
 						Element* join = new Element(*elementA, *elementB, false);
 						joinedElements.push_back(join);
-						std::erase(nets[i].elements, elementA);
-						std::erase(nets[i].elements, elementB);
+						std::erase(netsL[i].elements, elementA);
+						std::erase(netsL[i].elements, elementB);
 						std::erase(opposingNet->elements, elementA);
 						std::erase(opposingNet->elements, elementB);
 
-						nets[i].elements.push_back(join);
+						netsL[i].elements.push_back(join);
 						opposingNet->elements.push_back(join);
 						return true;
 					}
@@ -292,13 +306,38 @@ bool Circut::colapseParallel(std::vector<Net>& nets, std::vector<Element*>& join
 	return false;
 }
 
+void Circut::dropUnessecaryBrakets(std::string& str)
+{
+	for(size_t i = 0; i < str.size()-2; ++i)
+	{
+		if(str[i] == '(' && str[i+2] == ')')
+		{
+			str.erase(str.begin()+i+2);
+			str.erase(str.begin()+i);
+			--i;
+		}
+	}
+}
+
 std::string Circut::getString(DirectionHint hint)
 {
+	if(nets.empty())
+	{
+		Log(Log::WARN)<<"Can't parse string for circut without nets";
+		return "";
+	}
+
+	if(elements.empty())
+	{
+		Log(Log::WARN)<<"Can't parse string for circut without elements";
+		return "";
+	}
+
 	if(!model.empty())
 		return model;
 
 	uint64_t startingNetId = getStartingNetId(hint);
-	uint64_t endingNetId = getStartingNetId(hint);
+	uint64_t endingNetId = getEndingNetId(hint);
 
 	for(Net& net : nets)
 	{
@@ -356,7 +395,7 @@ std::string Circut::getString(DirectionHint hint)
 
 		while(true)
 		{
-			bool ret = colapseParallel(netsTmp, joinedElements);
+			bool ret = colapseParallel(netsTmp, joinedElements, startingNetId, endingNetId);
 			if(ret)
 				progress = true;
 			if(!ret)
@@ -366,7 +405,16 @@ std::string Circut::getString(DirectionHint hint)
 			break;
 	}
 
-	model = netsTmp[0].elements[0]->getString();
+	if(!netsTmp.empty() && !netsTmp[0].elements.empty())
+	{
+		model = netsTmp[0].elements[0]->getString();
+	}
+	else
+	{
+		Log(Log::WARN)<<"Could not parse net";
+	}
+
+	dropUnessecaryBrakets(model);
 
 	return model;
 }

@@ -24,8 +24,9 @@ private:
 	static std::vector<Net> sortLinesIntoNets(std::vector<cv::Vec4f> lines, double tollerance);
 	static Net* netFromId(std::vector<Net>& nets, uint64_t id);
 	static bool colapseSerial(std::vector<Net>& nets, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId);
-	static bool colapseParallel(std::vector<Net>& nets, std::vector<Element*>& joinedElements);
+	static bool colapseParallel(std::vector<Net>& nets, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId);
 	static uint64_t getOpositNetId(const Element* element, const Net& net, const std::vector<Net>& netsL);
+	static void dropUnessecaryBrakets(std::string& str);
 
 	void removeUnconnectedNets();
 	uint64_t getStartingNetId(DirectionHint hint) const;
