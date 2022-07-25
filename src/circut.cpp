@@ -4,12 +4,31 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <vector>
+#include <sstream>
+#include <thread>
 
 #include "element.h"
 #include "log.h"
 #include "randomgen.h"
 #include "utils.h"
 #include "linedetection.h"
+
+Circut::Circut(const Circut& in)
+{
+	model = in.model;
+	rect = in.rect;
+	image = in.image;
+	nets = in.nets;
+
+	elements.resize(in.elements.size(), nullptr);
+	for(size_t i = 0; i < elements.size(); ++i)
+		elements[i] = new Element(*in.elements[i]);
+}
+
+Circut Circut::operator=(const Circut& in)
+{
+	return Circut(in);
+}
 
 cv::Mat Circut::ciructImage() const
 {
@@ -308,6 +327,8 @@ bool Circut::colapseParallel(std::vector<Net>& netsL, std::vector<Element*>& joi
 
 void Circut::dropUnessecaryBrakets(std::string& str)
 {
+	if(str.size() < 3)
+		return;
 	for(size_t i = 0; i < str.size()-2; ++i)
 	{
 		if(str[i] == '(' && str[i+2] == ')')
@@ -355,25 +376,42 @@ std::string Circut::getString(DirectionHint hint)
 	}
 
 	bool dangling = false;
-	for(Element* element : elements)
+	for(size_t i = 0; i < elements.size(); ++i)
 	{
-		std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
+		std::vector<Net*> ajdacentNets = getElementAdjacentNets(elements[i]);
 
-		Log(Log::DEBUG, false)<<"Connection count for "<<element->getString()<<" is "<<ajdacentNets.size();
+		Log(Log::DEBUG, false)<<"Connection count for "<<elements[i]->getString()<<" is "<<ajdacentNets.size();
 		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), netFromId(nets, startingNetId)) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes first net";
 		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), netFromId(nets, endingNetId)) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes last net";
 		Log(Log::DEBUG, false)<<'\n';
 
-		if(getElementAdjacentNets(element).size() < 2)
+		if(ajdacentNets.size() == 0)
+		{
+			delete elements[i];
+			elements.erase(elements.begin()+i);
+			--i;
+		}
+		else if(ajdacentNets.size() < 2)
 			dangling = true;
 	}
 
+	if(elements.empty())
+	{
+		Log(Log::WARN)<<"All elements are dangling";
+		return "";
+	}
+
 	if(dangling)
+	{
 		Log(Log::WARN)<<"A dangling element is present";
+		return "";
+	}
 	else
+	{
 		Log(Log::DEBUG)<<"All elements fully connected";
+	}
 
 	removeUnconnectedNets();
 
@@ -414,9 +452,21 @@ std::string Circut::getString(DirectionHint hint)
 		Log(Log::WARN)<<"Could not parse net";
 	}
 
+
+	for(Element* element : joinedElements)
+		delete element;
+
 	dropUnessecaryBrakets(model);
 
 	return model;
+}
+
+std::string Circut::getSummary()
+{
+	std::stringstream ss;
+	ss<<"Rect = "<<rect<<'\n';
+	ss<<"Model = "<<getString();
+	return ss.str();
 }
 
 Circut::~Circut()

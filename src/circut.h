@@ -19,6 +19,7 @@ public:
 	cv::Mat image;
 	std::vector<Element*> elements;
 	std::vector<Net> nets;
+	DirectionHint dirHint = C_DIRECTION_UNKOWN;
 
 private:
 	static bool moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::Vec4f>& lines, double tollerance);
@@ -35,10 +36,15 @@ private:
 	std::vector<Net*> getElementAdjacentNets(const Element* const element);
 
 public:
+	Circut() = default;
+	Circut(const Circut& in);
+	Circut operator=(const Circut& in);
 	cv::Mat ciructImage() const;
 	void detectElements(Yolo5* yolo);
+	void setCircutDirectionHing(DirectionHint hint);
 	void detectNets(DirectionHint hint = C_DIRECTION_UNKOWN);
 	std::string getString(DirectionHint hint = C_DIRECTION_UNKOWN);
-	//std::string getSummary();
+	std::string getSummary();
+	DirectionHint estimateDirection();
 	~Circut();
 };
