@@ -16,12 +16,12 @@
 #include "circut.h"
 #include "randomgen.h"
 
-void printUsage(int argc, char** argv)
+static void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[CIRCUTNETWORKFILENAME] [ELEMENTNETWOKRFILENAME] [PDFFILENAME]";
 }
 
-void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
+static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 {
 	for(size_t i = 0; i < documents.size(); ++i)
 	{
@@ -34,17 +34,25 @@ void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 	}
 }
 
-bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo)
+static bool save(std::shared_ptr<Document> document)
 {
-	document->process(circutYolo, elementYolo);
-
-	bool ret = document->saveCircutImages("./circuts");
+	bool retImage = document->saveCircutImages("./circuts");
+	bool retDatafile = document->saveDatafile("./documents");
+	bool ret = retImage && retDatafile;
 	if(!ret)
 		Log(Log::WARN)<<"Error saving files for "<<document->basename;
 	return ret;
 }
 
-std::string getNextString(int argc, char** argv, int& argvCounter)
+static bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo)
+{
+	document->process(circutYolo, elementYolo);
+	if(!document->circuts.empty())
+		std::thread(save, document).detach();
+	return true;
+}
+
+static std::string getNextString(int argc, char** argv, int& argvCounter)
 {
 	while(argvCounter < argc)
 	{
@@ -58,7 +66,7 @@ std::string getNextString(int argc, char** argv, int& argvCounter)
 	return "";
 }
 
-void dropMessage(const std::string& message, void* userdata)
+static void dropMessage(const std::string& message, void* userdata)
 {
 	(void)message;
 	(void)userdata;
