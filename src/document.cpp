@@ -9,7 +9,7 @@
 #include "popplertocv.h"
 #include "linedetection.h"
 
-std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs)
+std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs, std::vector<cv::Rect>* rects)
 {
 	std::vector<cv::Mat> circuts;
 
@@ -28,6 +28,8 @@ std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, s
 				circuts.push_back(cv::Mat(image, detection.rect));
 				if(probs)
 					probs->push_back(detection.prob);
+				if(rects)
+					rects->push_back(detection.rect);
 			}
 			catch(const cv::Exception& ex)
 			{
@@ -91,16 +93,20 @@ bool Document::saveCircutImages(const std::filesystem::path folder) const
 bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 {
 	std::vector<float> probs;
+	std::vector<cv::Rect> rects;
 	if(pages.empty())
 		return false;
-	std::vector<cv::Mat> circutImages = getCircutImages(pages, circutYolo, &probs);
+	std::vector<cv::Mat> circutImages = getCircutImages(pages, circutYolo, &probs, &rects);
 
 	for(size_t i = 0; i < circutImages.size(); ++i)
 	{
 		Circut circut;
 		circut.image = circutImages[i];
 		circut.prob = probs[i];
+		circut.rect = rects[i];
 		circut.detectElements(elementYolo);
+		circut.detectNets();
+		circut.getString();
 		circuts.push_back(circut);
 	}
 

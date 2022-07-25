@@ -21,6 +21,7 @@ public:
 	void print(Log::Level level) const;
 
 	bool saveCircutImages(const std::filesystem::path folder) const;
+	bool saveDatafiles();
 
 	static std::shared_ptr<Document> load(const std::string& fileName);
 
@@ -29,4 +30,5 @@ public:
 	void removeEmptyCircuts();
 };
 
-std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs = nullptr);
+std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo,
+										std::vector<float>* probs = nullptr, std::vector<cv::Rect>* rects = nullptr);

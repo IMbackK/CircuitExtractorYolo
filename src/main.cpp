@@ -123,7 +123,7 @@ int main(int argc, char** argv)
 		fileNames.push_back(argv[i]);
 	}
 
-	//if(Log::level == Log::SUPERDEBUG)
+	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
 		cv::resizeWindow("Viewer", 960, 500);

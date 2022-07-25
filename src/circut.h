@@ -15,6 +15,7 @@ private:
 public:
 
 	float prob;
+	cv::Rect rect;
 	cv::Mat image;
 	std::vector<Element*> elements;
 	std::vector<Net> nets;
@@ -38,5 +39,6 @@ public:
 	void detectElements(Yolo5* yolo);
 	void detectNets(DirectionHint hint = C_DIRECTION_UNKOWN);
 	std::string getString(DirectionHint hint = C_DIRECTION_UNKOWN);
+	//std::string getSummary();
 	~Circut();
 };
