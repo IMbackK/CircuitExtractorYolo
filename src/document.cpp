@@ -1,5 +1,7 @@
 #include "document.h"
 
+#include <fstream>
+
 #include <poppler-document.h>
 #include <poppler-image.h>
 
@@ -57,7 +59,7 @@ void Document::print(Log::Level level) const
 	Log(level)<<"keywords: "<<keywords;
 }
 
-bool Document::saveCircutImages(const std::filesystem::path folder) const
+bool Document::saveCircutImages(const std::filesystem::path& folder) const
 {
 	if(!std::filesystem::is_directory(folder))
 	{
@@ -90,6 +92,38 @@ bool Document::saveCircutImages(const std::filesystem::path folder) const
 	return true;
 }
 
+bool Document::saveDatafile(const std::filesystem::path& folder)
+{
+	if(!std::filesystem::is_directory(folder))
+	{
+		if(!std::filesystem::create_directory(folder))
+		{
+			Log(Log::ERROR)<<folder<<" is not a valid directory and no directory could be created at this location";
+			return false;
+		}
+	}
+	std::fstream file;
+	std::filesystem::path path = folder/std::filesystem::path(basename + ".txt");
+	file.open(path, std::ios_base::out);
+	if(!file.is_open())
+	{
+		Log(Log::ERROR)<<"Could not open file "<<path<<" for writeing";
+		return false;
+	}
+
+	file<<"title = "<<title<<'\n';
+	file<<"author = "<<author<<'\n';
+	file<<"keywords = "<<keywords<<'\n';
+	file<<"circuts = "<<circuts.size()<<'\n';
+
+	for(size_t i = 0; i < circuts.size(); ++i)
+	{
+		file<<"circuts "<<i<<'\n';
+		file<<circuts[i].getSummary()<<'\n';
+	}
+	return true;
+}
+
 bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 {
 	std::vector<float> probs;
@@ -106,8 +140,9 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 		circut.rect = rects[i];
 		circut.detectElements(elementYolo);
 		circut.detectNets();
-		circut.getString();
-		circuts.push_back(circut);
+		std::string model = circut.getString();
+		if(model.size() > 2)
+			circuts.push_back(circut);
 	}
 
 	return true;

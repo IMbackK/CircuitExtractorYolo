@@ -20,8 +20,8 @@ public:
 
 	void print(Log::Level level) const;
 
-	bool saveCircutImages(const std::filesystem::path folder) const;
-	bool saveDatafiles();
+	bool saveCircutImages(const std::filesystem::path& folder) const;
+	bool saveDatafile(const std::filesystem::path& folder);
 
 	static std::shared_ptr<Document> load(const std::string& fileName);
 
