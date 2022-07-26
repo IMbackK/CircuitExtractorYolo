@@ -36,6 +36,8 @@ void printMatInfo(const cv::Mat& mat, const std::string& prefix = "", const Log:
 void printMat(const cv::Mat& mat, const Log::Level lvl = Log::INFO);
 
 
+bool rectsIntersect(const cv::Rect& a, const cv::Rect& b);
+
 cv::Rect rectFromPoints(const std::vector<cv::Point>& points);
 
 cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, int minimumPad = 1);
