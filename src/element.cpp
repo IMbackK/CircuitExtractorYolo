@@ -62,3 +62,9 @@ double Element::getProb() const
 {
 	return prob;
 }
+
+cv::Point Element::center() const
+{
+	cv::Rect rect = getRect();
+	return cv::Point(rect.x+rect.width/2, rect.y+rect.height/2);
+}
