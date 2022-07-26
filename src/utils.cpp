@@ -118,6 +118,25 @@ double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB)
 	return minDist;
 }
 
+cv::Rect rectFromPoints(const std::vector<cv::Point>& points)
+{
+	int left = std::numeric_limits<int>::max();
+	int right = std::numeric_limits<int>::min();
+	int top = std::numeric_limits<int>::max();
+	int bottom = std::numeric_limits<int>::min();
+
+	for(const cv::Point point : points)
+	{
+		left = point.x < left ? point.x : left;
+		right = point.x > right ? point.x : right;
+
+		top = point.y < top ? point.y : top;
+		bottom = point.y > bottom ? point.y : bottom;
+	}
+
+	return cv::Rect(left, top, right-left, bottom-top);
+}
+
 cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, int minimumPad)
 {
 	cv::Rect out;
