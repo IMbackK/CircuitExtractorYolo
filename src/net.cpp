@@ -11,6 +11,14 @@ Net::Net()
 	id = rd::uid();
 }
 
+Net::Net(cv::Point a, cv::Point b)
+{
+	Net();
+	endpoints.push_back(a);
+	endpoints.push_back(b);
+	lines.push_back(cv::Vec4f(a.x, a.y, b.x, b.y));
+}
+
 void Net::draw(cv::Mat& image, const cv::Scalar* color) const
 {
 	cv::Scalar colorFinal = color ? *color : cv::Scalar(rd::rand(64)+64, rd::rand(191)+64, rd::rand(64)+64);

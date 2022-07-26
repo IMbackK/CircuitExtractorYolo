@@ -21,6 +21,7 @@ private:
 
 public:
 	Net();
+	Net(cv::Point a, cv::Point b); //point to point net
 	bool operator==(const Net& net) const;
 	void draw(cv::Mat& image, const cv::Scalar* color = nullptr) const;
 	void computePoints(double tollerance = 10);

@@ -133,7 +133,7 @@ std::vector<Net> Circut::sortLinesIntoNets(std::vector<cv::Vec4f> lines, double 
 	return nets;
 }
 
-void Circut::detectNets(DirectionHint hint)
+void Circut::detectNets()
 {
 	assert(image.data);
 
@@ -288,6 +288,83 @@ bool Circut::colapseSerial(std::vector<Net>& netsL, std::vector<Element*>& joine
 	return false;
 }
 
+bool Circut::healDanglingElement(Element* element)
+{
+	Net* startingNet = netFromId(nets, getStartingNetId(dirHint));
+	Net* endingNet = netFromId(nets, getEndingNetId(dirHint));
+	std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
+
+	bool horiz = (dirHint == C_DIRECTION_HORIZ || dirHint == C_DIRECTION_UNKOWN);
+	cv::Rect elRect = element->getRect();
+	cv::Point elPoint = element->center();
+
+	if(*startingNet == *ajdacentNets[0])
+	{
+		bool isEndingElement = (horiz && elPoint.x <= startingNet->center().x) ||
+			(!horiz && elPoint.y <= startingNet->center().y);
+		if(isEndingElement)
+		{
+			Log(Log::INFO)<<"Healing circut that starts with element";
+
+			cv::Point a;
+			cv::Point b;
+			if(horiz)
+			{
+				a = cv::Point(elRect.x-elRect.width, elPoint.y);
+				b = cv::Point(elRect.x, elPoint.y);
+			}
+			else
+			{
+				a = cv::Point(elPoint.x, elRect.y-elRect.height);
+				b = cv::Point(elPoint.x, elRect.y);
+			}
+
+			nets.push_back(Net(a, b));
+
+			nets.back().addElement(element);
+			return true;
+		}
+	}
+	else if(*endingNet == *ajdacentNets[0])
+	{
+		bool isEndingElement = (horiz && elPoint.x >= endingNet->center().x) ||
+			(!horiz && elPoint.y >= endingNet->center().y);
+		if(isEndingElement)
+		{
+			Log(Log::INFO)<<"Healing circut that ends with element";
+
+			cv::Point a;
+			cv::Point b;
+			if(horiz)
+			{
+				a = cv::Point(elRect.x+elRect.width*2, elPoint.y);
+				b = cv::Point(elRect.x+elRect.width, elPoint.y);
+			}
+			else
+			{
+				a = cv::Point(elPoint.x, elRect.y+elRect.height*2);
+				b = cv::Point(elPoint.x, elRect.y+elRect.width);
+			}
+
+			nets.push_back(Net(a, b));
+
+			nets.back().addElement(element);
+			return true;
+		}
+	}
+	else
+	{
+		for(Element* elementTest : elements)
+		{
+			if(element == elementTest)
+				continue;
+
+		}
+	}
+
+	return false;
+}
+
 bool Circut::colapseParallel(std::vector<Net>& netsL, std::vector<Element*>& joinedElements, uint64_t startingId, uint64_t endingId)
 {
 	for(size_t i = 0; i < netsL.size(); ++i)
@@ -340,30 +417,24 @@ void Circut::dropUnessecaryBrakets(std::string& str)
 	}
 }
 
-std::string Circut::getString(DirectionHint hint)
+bool Circut::parseCircut()
 {
 	if(nets.empty())
 	{
-		Log(Log::WARN)<<"Can't parse string for circut without nets";
-		return "";
+		Log(Log::WARN)<<"Can't parse circut without nets";
+		return false;
 	}
 
 	if(elements.empty())
 	{
-		Log(Log::WARN)<<"Can't parse string for circut without elements";
-		return "";
+		Log(Log::WARN)<<"Can't parse circut without elements";
+		return false;
 	}
-
-	if(!model.empty())
-		return model;
-
-	uint64_t startingNetId = getStartingNetId(hint);
-	uint64_t endingNetId = getEndingNetId(hint);
 
 	for(Net& net : nets)
 	{
 		for(Element* element : elements)
-			net.addElement(element, hint);
+			net.addElement(element, dirHint);
 	}
 
 	for(Element* element : elements)
@@ -371,9 +442,14 @@ std::string Circut::getString(DirectionHint hint)
 		if(getElementAdjacentNets(element).size() < 2)
 		{
 			for(Net& net : nets)
-				net.addElement(element, hint, 3);
+				net.addElement(element, dirHint, 3);
 		}
 	}
+
+	removeUnconnectedNets();
+
+	uint64_t startingNetId = getStartingNetId(dirHint);
+	uint64_t endingNetId = getEndingNetId(dirHint);
 
 	bool dangling = false;
 	for(size_t i = 0; i < elements.size(); ++i)
@@ -393,27 +469,50 @@ std::string Circut::getString(DirectionHint hint)
 			elements.erase(elements.begin()+i);
 			--i;
 		}
-		else if(ajdacentNets.size() < 2)
-			dangling = true;
+		else if(ajdacentNets.size() == 1)
+		{
+			dangling |= !healDanglingElement(elements[i]);
+		}
 	}
 
 	if(elements.empty())
 	{
 		Log(Log::WARN)<<"All elements are dangling";
-		return "";
+		return false;
 	}
 
 	if(dangling)
 	{
 		Log(Log::WARN)<<"A dangling element is present";
-		return "";
+		return false;
 	}
 	else
 	{
 		Log(Log::DEBUG)<<"All elements fully connected";
 	}
 
-	removeUnconnectedNets();
+	return true;
+}
+
+std::string Circut::getString()
+{
+	if(nets.size() < 2)
+	{
+		Log(Log::WARN)<<"Can't generate string for circut without at least two nets";
+		return "";
+	}
+
+	if(elements.empty())
+	{
+		Log(Log::WARN)<<"Can't generate string for circut without elements";
+		return "";
+	}
+
+	if(!model.empty())
+		return model;
+
+	uint64_t startingNetId = getStartingNetId(dirHint);
+	uint64_t endingNetId = getEndingNetId(dirHint);
 
 	std::string str;
 	std::vector<Net> netsTmp = nets;
@@ -449,9 +548,9 @@ std::string Circut::getString(DirectionHint hint)
 	}
 	else
 	{
-		Log(Log::WARN)<<"Could not parse net";
+		Log(Log::WARN)<<"Could not parse circut string";
+		model = "";
 	}
-
 
 	for(Element* element : joinedElements)
 		delete element;
@@ -467,6 +566,31 @@ std::string Circut::getSummary()
 	ss<<"Rect = "<<rect<<'\n';
 	ss<<"Model = "<<getString();
 	return ss.str();
+}
+
+DirectionHint Circut::estimateDirection()
+{
+	if(nets.size() < 2)
+	{
+		Log(Log::WARN)<<"Can't estmate direction of circut with less than two nets";
+		return C_DIRECTION_UNKOWN;
+	}
+
+	std::vector<cv::Point> points;
+	points.reserve(nets.size());
+	for(const Net& net : nets)
+		points.push_back(net.center());
+	cv::Rect rect = rectFromPoints(points);
+
+	if(rect.width >= rect.height)
+		return C_DIRECTION_HORIZ;
+	else
+		return C_DIRECTION_VERT;
+}
+
+void Circut::setCircutDirectionHint(DirectionHint hint)
+{
+	dirHint = hint;
 }
 
 Circut::~Circut()

@@ -33,6 +33,7 @@ public:
 	Element(const Element& a, const Element& b, bool serial = true);
 	ElementType getType() const;
 	cv::Rect getRect() const;
+	cv::Point center() const;
 	double getProb() const;
 	std::string getString() const;
 };
