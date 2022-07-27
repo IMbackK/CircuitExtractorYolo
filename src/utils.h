@@ -11,6 +11,8 @@ typedef enum {
 	C_DIRECTION_UNKOWN
 } DirectionHint;
 
+const char* getDirectionString(DirectionHint hint);
+
 bool pointInRect(const cv::Point2i& point, const cv::Rect& rect);
 
 bool pointIsOnLine(const cv::Point2i& point, const cv::Vec4f& line, double tollerance);
@@ -38,12 +40,18 @@ void printMat(const cv::Mat& mat, const Log::Level lvl = Log::INFO);
 
 bool rectsIntersect(const cv::Rect& a, const cv::Rect& b);
 
+bool rectsFullyOverlap(const cv::Rect& a, const cv::Rect& b);
+
 cv::Rect rectFromPoints(const std::vector<cv::Point>& points);
+
+cv::Rect& ofsetRect(cv::Rect& rect, int dx, int dy);
 
 cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, int minimumPad = 1);
 
 cv::Mat getMatPlane(cv::Mat& in, int plane);
 
 cv::Mat getMatPlane4d(cv::Mat& in, int plane);
+
+cv::Mat extendBorder(cv::Mat& in, int borderSize);
 
 std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor);

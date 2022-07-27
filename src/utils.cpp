@@ -3,6 +3,20 @@
 #include <iomanip>
 #include <algorithm>
 
+const char* getDirectionString(DirectionHint hint)
+{
+	switch(hint)
+	{
+		case C_DIRECTION_HORIZ:
+			return "Horizontal";
+		case C_DIRECTION_VERT:
+			return "Vertical";
+		case C_DIRECTION_UNKOWN:
+		default:
+			return "Unkown";
+	}
+}
+
 bool pointInRect(const cv::Point2i& point, const cv::Rect& rect)
 {
 	return point.x >= rect.x && point.x <= rect.x+rect.width &&
@@ -148,6 +162,13 @@ cv::Rect rectFromPoints(const std::vector<cv::Point>& points)
 	return cv::Rect(left, top, right-left, bottom-top);
 }
 
+cv::Rect& ofsetRect(cv::Rect& rect, int dx, int dy)
+{
+	rect.x+=dx;
+	rect.y+=dy;
+	return rect;
+}
+
 cv::Rect padRect(const cv::Rect& rect, double xPadPercent, double yPadPercent, int minimumPad)
 {
 	cv::Rect out;
@@ -269,6 +290,15 @@ std::string getMatType(const cv::Mat& mat)
 
 	out += "C";
 	out += std::to_string(chans);
+
+	return out;
+}
+
+cv::Mat extendBorder(cv::Mat& in, int borderSize)
+{
+	cv::Mat out(in.rows+borderSize*2, in.cols+borderSize*2, in.type(), cv::Scalar(255,255,255));
+
+	in.copyTo(out(cv::Rect(borderSize, borderSize, in.cols, in.rows)));
 
 	return out;
 }
