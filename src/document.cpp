@@ -135,11 +135,14 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 	for(size_t i = 0; i < circutImages.size(); ++i)
 	{
 		Circut circut;
-		circut.image = circutImages[i];
+		circut.image = extendBorder(circutImages[i], 10);
 		circut.prob = probs[i];
 		circut.rect = rects[i];
 		circut.detectElements(elementYolo);
 		circut.detectNets();
+		DirectionHint hint = circut.estimateDirection();
+		circut.setDirectionHint(hint);
+		circut.parseCircut();
 		std::string model = circut.getString();
 		if(model.size() > 2)
 			circuts.push_back(circut);

@@ -129,19 +129,23 @@ void algoLine(cv::Mat& image)
 	}
 
 	Circut circut;
-	circut.image = image;
+	circut.image = extendBorder(image, 15);
 
 	circut.detectElements(yolo);
 
 	circut.detectNets();
+
+	circut.setDirectionHint(circut.estimateDirection());
+
+	circut.parseCircut();
+
+	std::string modelString = circut.getString();
 
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
 	}
-
-	std::string modelString = circut.getString();
 
 	Log(Log::INFO)<<"Parsed string: "<<modelString;
 }
