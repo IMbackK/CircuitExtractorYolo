@@ -31,6 +31,7 @@ private:
 	static void dropUnessecaryBrakets(std::string& str);
 
 	void removeUnconnectedNets();
+	void removeNestedElements();
 	bool healDanglingElement(Element* element);
 	uint64_t getStartingNetId(DirectionHint hint) const;
 	uint64_t getEndingNetId(DirectionHint hint) const;
@@ -42,7 +43,7 @@ public:
 	Circut operator=(const Circut& in);
 	cv::Mat ciructImage() const;
 	void detectElements(Yolo5* yolo);
-	void setCircutDirectionHint(DirectionHint hint);
+	void setDirectionHint(DirectionHint hint);
 	void detectNets();
 	bool parseCircut();
 	std::string getString();

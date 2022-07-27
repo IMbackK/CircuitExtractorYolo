@@ -19,6 +19,7 @@ Circut::Circut(const Circut& in)
 	rect = in.rect;
 	image = in.image;
 	nets = in.nets;
+	dirHint = in.dirHint;
 
 	elements.resize(in.elements.size(), nullptr);
 	for(size_t i = 0; i < elements.size(); ++i)
@@ -65,6 +66,16 @@ cv::Mat Circut::ciructImage() const
 			nets[i].draw(visulization);
 		}
 	}
+
+	cv::putText(visulization, std::string("Dir: ")+getDirectionString(dirHint), cv::Point(5, visulization.rows-5),
+			cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(100,0,200), 1, cv::LINE_8, false);
+
+	if(!model.empty())
+	{
+		cv::putText(visulization, std::string("Model: ")+model, cv::Point(5, visulization.rows-18),
+			cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(100,0,200), 1, cv::LINE_8, false);
+	}
+
 	return visulization;
 }
 
@@ -598,6 +609,7 @@ std::string Circut::getSummary()
 	std::stringstream ss;
 	ss<<"Rect = "<<rect<<'\n';
 	ss<<"Model = "<<getString();
+	ss<<"Direction = "<<getDirectionString(dirHint);
 	return ss.str();
 }
 
@@ -621,7 +633,7 @@ DirectionHint Circut::estimateDirection()
 		return C_DIRECTION_VERT;
 }
 
-void Circut::setCircutDirectionHint(DirectionHint hint)
+void Circut::setDirectionHint(DirectionHint hint)
 {
 	dirHint = hint;
 }
@@ -631,3 +643,4 @@ Circut::~Circut()
 	for(Element* element : elements)
 		delete element;
 }
+
