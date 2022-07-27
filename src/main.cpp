@@ -172,7 +172,8 @@ int main(int argc, char** argv)
 	for(size_t j = 0; j < futures.size(); ++j)
 	{
 		std::shared_ptr<Document> document = futures[j].get();
-		process(document, circutYolo, elementYolo);
+		if(document)
+			process(document, circutYolo, elementYolo);
 		Log(Log::INFO)<<"Finished document";
 	}
 
