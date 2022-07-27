@@ -134,13 +134,15 @@ double closestLineEndpoint(const cv::Vec4f lineA, const cv::Vec4f lineB)
 
 bool rectsIntersect(const cv::Rect& a, const cv::Rect& b)
 {
-	bool isInX = (a.x >= b.x && a.x <= b.x+b.width) ||
-		(a.x+a.width >= b.x && a.x+a.width <= b.x+b.width) ||
-		(a.x < b.x && a.x+a.width > b.x+b.width);
-	bool isInY = (a.y >= b.y && a.y <= b.y+b.height) ||
-		(a.y+a.height >= b.y && a.y+a.height <= b.y+b.height) ||
-		(a.y < b.y && a.y+a.height > b.y+b.height);
-	return isInX && isInY;
+	cv::Rect rect = a & b;
+	return rect.width*rect.height > 0;
+}
+
+bool rectsFullyOverlap(const cv::Rect& a, const cv::Rect& b)
+{
+	int area = std::min(a.width*a.height, b.width*b.height);
+	cv::Rect rect = a & b;
+	return rect.width*rect.height >= area;
 }
 
 cv::Rect rectFromPoints(const std::vector<cv::Point>& points)
