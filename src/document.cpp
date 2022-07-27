@@ -118,7 +118,7 @@ bool Document::saveDatafile(const std::filesystem::path& folder)
 
 	for(size_t i = 0; i < circuts.size(); ++i)
 	{
-		file<<"circuts "<<i<<'\n';
+		file<<"circut "<<i<<'\n';
 		file<<circuts[i].getSummary()<<'\n';
 	}
 	return true;
