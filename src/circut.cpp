@@ -354,11 +354,44 @@ bool Circut::healDanglingElement(Element* element)
 	}
 	else
 	{
+		auto padding = getRectXYPaddingPercents(dirHint, 1);
+		cv::Rect rect = padRect(element->getRect(), padding.first, padding.second, 2);
+
 		for(Element* elementTest : elements)
 		{
 			if(element == elementTest)
 				continue;
 
+			if(getElementAdjacentNets(elementTest).size() > 1)
+				continue;
+
+			bool found = false;
+			for(const Element* elementOnAjdecentNet : ajdacentNets[0]->elements)
+			{
+				if(elementTest == elementOnAjdecentNet)
+				{
+					found = true;
+					break;
+				}
+			}
+			if(found)
+				continue;
+
+			cv::Rect rectTest = padRect(elementTest->getRect(), padding.first, padding.second, 2);
+
+			if(rectsIntersect(rect, rectTest))
+			{
+				if((horiz && ((rect.x >= rectTest.x && rect.x <= rectTest.x+rect.width) ||
+					(rect.x+rect.width >= rectTest.x && rect.x+rect.width <= rectTest.x+rect.width))) ||
+					(!horiz && ((rect.y >= rectTest.y && rect.y <= rectTest.y+rect.height) ||
+					(rect.y+rect.height >= rectTest.y && rect.y+rect.height <= rectTest.y+rect.height))))
+				{
+					Log(Log::INFO)<<"joining adjecent dangling elements with new net";
+					nets.push_back(Net(element->center(), elementTest->center()));
+					nets.back().addElement(element);
+					nets.back().addElement(elementTest);
+				}
+			}
 		}
 	}
 
