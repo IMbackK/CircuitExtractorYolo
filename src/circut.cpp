@@ -88,27 +88,32 @@ void Circut::detectElements(Yolo5* yolo)
 	{
 		try
 		{
-			bool intersects = false;
-			for(Element* element : elements)
-			{
-				if(rectsFullyOverlap(element->getRect(), detection.rect))
-				{
-					intersects = true;
-					break;
-				}
-			}
+			Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
+			element->image = image(detection.rect);
 
-			if(!intersects)
-			{
-				Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
-				element->image = image(detection.rect);
-
-				elements.push_back(element);
-			}
+			elements.push_back(element);
 		}
 		catch(const cv::Exception& ex)
 		{
 			Log(Log::WARN)<<detection.rect<<" out of bounds";
+		}
+	}
+
+	for(size_t i = 0; i < elements.size(); ++i)
+	{
+		for(size_t j = 0; j < elements.size(); ++j)
+		{
+			if(i == j)
+				continue;
+			if(rectsFullyOverlap(elements[i]->getRect(), elements[j]->getRect()))
+			{
+				if(elements[i]->getRect().width*elements[i]->getRect().height > elements[i]->getRect().width*elements[i]->getRect().height)
+					elements.erase(elements.begin()+j);
+				else
+					elements.erase(elements.begin()+i);
+				--i;
+				break;
+			}
 		}
 	}
 }
