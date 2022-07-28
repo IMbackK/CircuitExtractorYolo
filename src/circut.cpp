@@ -88,9 +88,23 @@ void Circut::detectElements(Yolo5* yolo)
 	{
 		try
 		{
-			Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
-			element->image = image(detection.rect);
-			elements.push_back(element);
+			bool intersects = false;
+			for(Element* element : elements)
+			{
+				if(rectsFullyOverlap(element->getRect(), detection.rect))
+				{
+					intersects = true;
+					break;
+				}
+			}
+
+			if(!intersects)
+			{
+				Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
+				element->image = image(detection.rect);
+
+				elements.push_back(element);
+			}
 		}
 		catch(const cv::Exception& ex)
 		{
