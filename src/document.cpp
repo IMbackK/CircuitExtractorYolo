@@ -11,7 +11,7 @@
 #include "popplertocv.h"
 #include "linedetection.h"
 
-std::vector<cv::Mat> getCircutImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs, std::vector<cv::Rect>* rects)
+std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs, std::vector<cv::Rect>* rects)
 {
 	std::vector<cv::Mat> circuts;
 
@@ -124,20 +124,17 @@ bool Document::saveDatafile(const std::filesystem::path& folder)
 	return true;
 }
 
-bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
+bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo)
 {
 	std::vector<float> probs;
 	std::vector<cv::Rect> rects;
 	if(pages.empty())
 		return false;
-	std::vector<cv::Mat> circutImages = getCircutImages(pages, circutYolo, &probs, &rects);
+	std::vector<cv::Mat> circutImages = getYoloImages(pages, circutYolo, &probs, &rects);
 
 	for(size_t i = 0; i < circutImages.size(); ++i)
 	{
-		Circut circut;
-		circut.image = extendBorder(circutImages[i], 10);
-		circut.prob = probs[i];
-		circut.rect = rects[i];
+		Circut circut(extendBorder(circutImages[i], 10), probs[i], rects[i]);
 		circut.detectElements(elementYolo);
 		circut.detectNets();
 		DirectionHint hint = circut.estimateDirection();
@@ -146,6 +143,16 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo)
 		std::string model = circut.getString();
 		if(model.size() > 2)
 			circuts.push_back(circut);
+	}
+
+	probs.clear();
+	rects.clear();
+	std::vector<cv::Mat> graphImages = getYoloImages(pages, graphYolo, &probs, &rects);
+	for(size_t i = 0; i < graphImages.size(); ++i)
+	{
+		Graph graph(extendBorder(graphImages[i], 10), probs[i], rects[i]);
+		graph.getPoints();
+		graphs.push_back(graph);
 	}
 
 	return true;

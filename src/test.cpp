@@ -20,6 +20,7 @@
 
 static constexpr char circutNetworkFileName[]  = "../data/networks/circut/best.onnx";
 static constexpr char elementNetworkFileName[] = "../data/networks/element/best.onnx";
+static constexpr char graphNetworkFileName[] = "../data/networks/element/best.onnx";
 
 typedef enum
 {
@@ -27,13 +28,14 @@ typedef enum
 	ALGO_CIRCUT = 0,
 	ALGO_ELEMENT,
 	ALGO_NET,
+	ALGO_GRAPH,
 	ALGO_COUNT
 } Algo;
 
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
-	Log(Log::INFO)<<"Valid algos: circut, element, net";
+	Log(Log::INFO)<<"Valid algos: circut, element, net, graph";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -58,6 +60,8 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_ELEMENT;
 		else if(in == "net")
 			out = ALGO_NET;
+		else if(in == "graph")
+			out = ALGO_NET;
 		else
 			out = ALGO_INVALID;
 	}
@@ -78,7 +82,7 @@ void algoCircut(cv::Mat& image)
 	}
 
 	std::vector<cv::Mat> images({image});
-	std::vector<cv::Mat> detections = getCircutImages(images, yolo);
+	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
 
 	delete yolo;
 }
@@ -150,6 +154,25 @@ void algoLine(cv::Mat& image)
 	Log(Log::INFO)<<"Parsed string: "<<modelString;
 }
 
+void algoGraph(cv::Mat& image)
+{
+	Yolo5* yolo;
+	try
+	{
+		yolo = new Yolo5(graphNetworkFileName, 1);
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Can not read network from "<<graphNetworkFileName;
+		return;
+	}
+
+	std::vector<cv::Mat> images({image});
+	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
+
+	delete yolo;
+}
+
 int main(int argc, char** argv)
 {
 	rd::init();
@@ -187,6 +210,8 @@ int main(int argc, char** argv)
 		case ALGO_NET:
 			algoLine(image);
 			break;
+		case ALGO_GRAPH:
+			algoGraph(image);
 		case ALGO_INVALID:
 		default:
 			Log(Log::ERROR)<<'\"'<<argv[1]<<"\" is not a valid algorithm";

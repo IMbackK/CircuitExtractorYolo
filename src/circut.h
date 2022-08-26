@@ -40,6 +40,7 @@ private:
 public:
 	Circut() = default;
 	Circut(const Circut& in);
+	Circut(cv::Mat imageI, float probI, cv::Rect rectI);
 	Circut operator=(const Circut& in);
 	cv::Mat ciructImage() const;
 	void detectElements(Yolo5* yolo);

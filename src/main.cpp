@@ -18,9 +18,10 @@
 
 static void printUsage(int argc, char** argv)
 {
-	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[CIRCUTNETWORKFILENAME] [ELEMENTNETWOKRFILENAME] [PDFFILENAME]";
+	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[CIRCUTNETWORKFILENAME] [ELEMENTNETWOKRFILENAME] [GRAPHNETWORFILENAME] [PDFFILENAMES]";
 }
 
+/*
 static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 {
 	for(size_t i = 0; i < documents.size(); ++i)
@@ -33,6 +34,7 @@ static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 		}
 	}
 }
+*/
 
 static bool save(std::shared_ptr<Document> document)
 {
@@ -44,9 +46,9 @@ static bool save(std::shared_ptr<Document> document)
 	return ret;
 }
 
-static bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo)
+static bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo)
 {
-	document->process(circutYolo, elementYolo);
+	document->process(circutYolo, elementYolo, graphYolo);
 	if(!document->circuts.empty())
 		std::thread(save, document).detach();
 	return true;
@@ -76,7 +78,7 @@ int main(int argc, char** argv)
 {
 	rd::init();
 	Log::level = Log::INFO;
-	if(argc < 4)
+	if(argc < 5)
 	{
 		printUsage(argc, argv);
 		return 1;
@@ -86,6 +88,7 @@ int main(int argc, char** argv)
 
 	Yolo5* circutYolo;
 	Yolo5* elementYolo;
+	Yolo5* graphYolo;
 
 	int argvCounter = 1;
 	std::string circutNetworkFileName = getNextString(argc, argv, argvCounter);
@@ -119,6 +122,23 @@ int main(int argc, char** argv)
 	catch(const cv::Exception& ex)
 	{
 		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
+		return 1;
+	}
+
+	std::string graphNetworkFileName = getNextString(argc, argv, argvCounter);
+	if(graphNetworkFileName.empty())
+	{
+		printUsage(argc, argv);
+		return 1;
+	}
+	try
+	{
+		graphYolo = new Yolo5(graphNetworkFileName, 1);
+		Log(Log::INFO)<<"Red element network from "<<graphNetworkFileName;
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Can not read network from "<<graphNetworkFileName;
 		return 1;
 	}
 
@@ -156,7 +176,7 @@ int main(int argc, char** argv)
 				std::shared_ptr<Document> document = futures[j].get();
 				if(document)
 				{
-					process(document, circutYolo, elementYolo);
+					process(document, circutYolo, elementYolo, graphYolo);
 					Log(Log::INFO)<<"Finished document. documents in qeue: "<<futures.size();
 				}
 				else
@@ -173,12 +193,13 @@ int main(int argc, char** argv)
 	{
 		std::shared_ptr<Document> document = futures[j].get();
 		if(document)
-			process(document, circutYolo, elementYolo);
+			process(document, circutYolo, elementYolo, graphYolo);
 		Log(Log::INFO)<<"Finished document";
 	}
 
 	delete circutYolo;
 	delete elementYolo;
+	delete graphYolo;
 
 	return 0;
 }

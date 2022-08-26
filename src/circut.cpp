@@ -31,6 +31,10 @@ Circut Circut::operator=(const Circut& in)
 	return Circut(in);
 }
 
+Circut::Circut(cv::Mat imageI, float probI, cv::Rect rectI): image(imageI), prob(probI), rect(rectI)
+{
+}
+
 cv::Mat Circut::ciructImage() const
 {
 	cv::Mat visulization;
