@@ -5,8 +5,8 @@
 #include <opencv2/highgui.hpp>
 #include <cmath>
 #include <algorithm>
-#include <opencv2/ximgproc.hpp>
 
+#include "thinning.h"
 #include "utils.h"
 #include "log.h"
 
@@ -271,7 +271,7 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	work.convertTo(work, CV_8U, 1);
 	cv::threshold(work, work, 2*std::numeric_limits<uint8_t>::max()/3, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
 	cv::bitwise_not(work, work);
-	cv::ximgproc::thinning(work, work, cv::ximgproc::THINNING_ZHANGSUEN);
+	thinning(work, work, THINNING_ZHANGSUEN);
 
 	std::shared_ptr<cv::LineSegmentDetector> detector = cv::createLineSegmentDetector(cv::LSD_REFINE_STD, 1, 2, 2.0, 50.5);
 
