@@ -8,16 +8,16 @@
 #include "log.h"
 #include "utils.h"
 
-Yolo5::Yolo5(const cv::dnn::Net &netI, size_t numCassesI):
-numClasses(numCassesI), net(netI)
+Yolo5::Yolo5(const cv::dnn::Net &netI, size_t numCassesI, int trainSizeXIn, int trainSizeYIn):
+numClasses(numCassesI), net(netI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
 {
 	dimensions = 5+numClasses;
 	net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
 	net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
 }
 
-Yolo5::Yolo5(const std::string& fileName, size_t numCassesI):
-numClasses(numCassesI)
+Yolo5::Yolo5(const std::string& fileName, size_t numCassesI, int trainSizeXIn, int trainSizeYIn):
+numClasses(numCassesI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
 {
 	dimensions = 5+numClasses;
 	net = cv::dnn::readNet(fileName);
@@ -31,22 +31,22 @@ cv::Mat Yolo5::resizeWithBorder(const cv::Mat& mat)
 
 	cv::Mat resized;
 	double aspectRatio = mat.cols/static_cast<double>(mat.rows);
-	cv::Mat out(TRAIN_SIZE_X, TRAIN_SIZE_Y, mat.type());
+	cv::Mat out(trainSizeX, trainSizeY, mat.type());
 
 	if(mat.rows < mat.cols)
 	{
-		cv::resize(mat, resized, cv::Size(TRAIN_SIZE_X, TRAIN_SIZE_X/aspectRatio), 0, 0, cv::INTER_LINEAR);
-		int borderPix = (TRAIN_SIZE_X-TRAIN_SIZE_X/aspectRatio)/2;
+		cv::resize(mat, resized, cv::Size(trainSizeX, trainSizeX/aspectRatio), 0, 0, cv::INTER_LINEAR);
+		int borderPix = (trainSizeX-trainSizeX/aspectRatio)/2;
 		cv::copyMakeBorder(resized, out, borderPix, borderPix, 0, 0, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
 	}
 	else
 	{
-		cv::resize(mat, resized, cv::Size(TRAIN_SIZE_Y*aspectRatio, TRAIN_SIZE_Y), 0, 0, cv::INTER_LINEAR);
-		int borderPix = (TRAIN_SIZE_Y-TRAIN_SIZE_Y*aspectRatio)/2;
+		cv::resize(mat, resized, cv::Size(trainSizeY*aspectRatio, trainSizeY), 0, 0, cv::INTER_LINEAR);
+		int borderPix = (trainSizeY-trainSizeY*aspectRatio)/2;
 		cv::copyMakeBorder(resized, out, 0, 0, borderPix, borderPix, cv::BORDER_CONSTANT, cv::Scalar(114, 114, 114));
 	}
 
-	cv::resize(out, out, cv::Size(TRAIN_SIZE_X, TRAIN_SIZE_Y), 0, 0, cv::INTER_LINEAR);
+	cv::resize(out, out, cv::Size(trainSizeX, trainSizeY), 0, 0, cv::INTER_LINEAR);
 	return out;
 }
 
@@ -88,8 +88,8 @@ void Yolo5::transformCord(std::vector<DetectedClass>& detections, const cv::Size
 
 	if(aspectRatio > 1)
 	{
-		double scaleFactor = static_cast<double>(matSize.width)/TRAIN_SIZE_X;
-		int borderPix = (TRAIN_SIZE_Y-matSize.height/scaleFactor)/2;
+		double scaleFactor = static_cast<double>(matSize.width)/trainSizeX;
+		int borderPix = (trainSizeY-matSize.height/scaleFactor)/2;
 
 		for(DetectedClass& detection : detections)
 		{
@@ -102,8 +102,8 @@ void Yolo5::transformCord(std::vector<DetectedClass>& detections, const cv::Size
 	}
 	else
 	{
-		double scaleFactor = static_cast<double>(matSize.height)/TRAIN_SIZE_X;
-		int borderPix = (TRAIN_SIZE_X-matSize.width/scaleFactor)/2;
+		double scaleFactor = static_cast<double>(matSize.height)/trainSizeX;
+		int borderPix = (trainSizeX-matSize.width/scaleFactor)/2;
 
 		for(DetectedClass& detection : detections)
 		{
@@ -161,7 +161,6 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 				int height = h;
 				boxes.push_back(cv::Rect(left, top, width, height));
 			}
-
 		}
 		dataPtr += dimensions;
 	}
