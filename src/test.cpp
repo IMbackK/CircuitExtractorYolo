@@ -61,7 +61,7 @@ Algo parseAlgo(const std::string& in)
 		else if(in == "net")
 			out = ALGO_NET;
 		else if(in == "graph")
-			out = ALGO_NET;
+			out = ALGO_GRAPH;
 		else
 			out = ALGO_INVALID;
 	}
@@ -160,7 +160,7 @@ void algoGraph(cv::Mat& image)
 	Yolo5* yolo;
 	try
 	{
-		yolo = new Yolo5(graphNetworkFileName, 1, 1280, 1280);
+		yolo = new Yolo5(graphNetworkFileName, 1, 640, 640);
 	}
 	catch(const cv::Exception& ex)
 	{
@@ -213,6 +213,7 @@ int main(int argc, char** argv)
 			break;
 		case ALGO_GRAPH:
 			algoGraph(image);
+			break;
 		case ALGO_INVALID:
 		default:
 			Log(Log::ERROR)<<'\"'<<argv[1]<<"\" is not a valid algorithm";

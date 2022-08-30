@@ -20,7 +20,10 @@ Yolo5::Yolo5(const std::string& fileName, size_t numCassesI, int trainSizeXIn, i
 numClasses(numCassesI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
 {
 	dimensions = 5+numClasses;
+	Log(Log::INFO, false)<<"Reading net from "<<fileName<<". ";
 	net = cv::dnn::readNet(fileName);
+	Log(Log::INFO)<<"compleated";
+	std::cout<<std::flush;
 	net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
 	net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
 }
