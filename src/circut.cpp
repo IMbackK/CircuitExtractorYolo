@@ -198,6 +198,9 @@ void Circut::removeUnconnectedNets()
 
 uint64_t Circut::getStartingNetId(DirectionHint hint) const
 {
+	if(nets.empty())
+		return 0;
+
 	int leftMostIndex = 0;
 	int leftMostPoint = std::numeric_limits<int>::max();
 	for(size_t i = 0; i < nets.size(); ++i)
@@ -215,11 +218,15 @@ uint64_t Circut::getStartingNetId(DirectionHint hint) const
 		}
 	}
 	return nets[leftMostIndex].getId();
+
 }
 
 uint64_t Circut::getEndingNetId(DirectionHint hint) const
 {
-	size_t rightMostIndex = 0;
+	if(nets.empty())
+		return 0;
+
+	int rightMostIndex = 0;
 	int rightMostPoint = 0;
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
