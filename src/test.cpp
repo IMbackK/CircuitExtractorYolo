@@ -20,7 +20,7 @@
 
 static constexpr char circutNetworkFileName[]  = "../data/networks/circut/best.onnx";
 static constexpr char elementNetworkFileName[] = "../data/networks/element/best.onnx";
-static constexpr char graphNetworkFileName[] = "../data/networks/element/best.onnx";
+static constexpr char graphNetworkFileName[] = "../data/networks/graph/best.onnx";
 
 typedef enum
 {
