@@ -87,7 +87,7 @@ void algoCircut(cv::Mat& image)
 	delete yolo;
 }
 
-void algoElement(const cv::Mat& image)
+void algoElement(cv::Mat& image)
 {
 	Yolo5* yolo;
 	try
@@ -101,7 +101,8 @@ void algoElement(const cv::Mat& image)
 	}
 
 	Circut circut;
-	circut.image = image;
+	circut.image = extendBorder(image, 15);
+
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.image);
