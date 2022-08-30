@@ -18,9 +18,9 @@
 #include "yolo.h"
 #include "document.h"
 
-static constexpr char circutNetworkFileName[]  = "../data/networks/circut/best.onnx";
-static constexpr char elementNetworkFileName[] = "../data/networks/element/best.onnx";
-static constexpr char graphNetworkFileName[] = "../data/networks/graph/best.onnx";
+static constexpr char circutNetworkFileName[]  = "../data/networks/circut/640/best.onnx";
+static constexpr char elementNetworkFileName[] = "../data/networks/element/640/best.onnx";
+static constexpr char graphNetworkFileName[] = "../data/networks/graph/640/best.onnx";
 
 typedef enum
 {
@@ -73,7 +73,7 @@ void algoCircut(cv::Mat& image)
 	Yolo5* yolo;
 	try
 	{
-		yolo = new Yolo5(circutNetworkFileName, 1);
+		yolo = new Yolo5(circutNetworkFileName, 1, 640, 640);
 	}
 	catch(const cv::Exception& ex)
 	{
@@ -92,7 +92,7 @@ void algoElement(const cv::Mat& image)
 	Yolo5* yolo;
 	try
 	{
-		yolo = new Yolo5(elementNetworkFileName, 7);
+		yolo = new Yolo5(elementNetworkFileName, 7, 640, 640);
 	}
 	catch(const cv::Exception& ex)
 	{
@@ -124,7 +124,7 @@ void algoLine(cv::Mat& image)
 	Yolo5* yolo;
 	try
 	{
-		yolo = new Yolo5(elementNetworkFileName, 7);
+		yolo = new Yolo5(elementNetworkFileName, 7, 640, 640);
 	}
 	catch(const cv::Exception& ex)
 	{
@@ -159,7 +159,7 @@ void algoGraph(cv::Mat& image)
 	Yolo5* yolo;
 	try
 	{
-		yolo = new Yolo5(graphNetworkFileName, 1);
+		yolo = new Yolo5(graphNetworkFileName, 1, 1280, 1280);
 	}
 	catch(const cv::Exception& ex)
 	{
