@@ -1,6 +1,5 @@
 #!/bin/python
 
-#model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet50', pretrained=True)
 from __future__ import print_function
 import argparse
 import torch
@@ -44,6 +43,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
+        output = F.log_softmax(output, dim=1)
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
@@ -63,6 +63,7 @@ def test(model, device, test_loader):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
+            output = F.log_softmax(output, dim=1)
             test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -119,8 +120,7 @@ def main():
 
     transform=transforms.Compose([
         transforms.ToTensor(),
-        transforms.Resize((28, 28)),
-        transforms.Grayscale(),
+        transforms.Resize((277, 277)),
         transforms.Normalize((0.1307,), (0.3081,))
         ])
 
@@ -134,7 +134,8 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    model = Net().to(device)
+    model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet50', pretrained=True)
+    #model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
