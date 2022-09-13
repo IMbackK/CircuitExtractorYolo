@@ -186,7 +186,7 @@ int main(int argc, char** argv)
 
 	Algo algo = parseAlgo(argv[1]);
 
-	cv::Mat image = cv::imread(argv[2]);
+	cv::Mat image = cv::s(argv[2]);
 	if(!image.data)
 	{
 		Log(Log::ERROR)<<argv[2]<<" is not a valid image file";
