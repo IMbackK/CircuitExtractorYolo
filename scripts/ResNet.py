@@ -1,4 +1,4 @@
-#!/bin/python
+#!/bin/python3
 
 from __future__ import print_function
 import argparse
