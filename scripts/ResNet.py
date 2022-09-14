@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.onnx as onnx
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 from torch.optim.lr_scheduler import StepLR
 
 def train(args, model, device, train_loader, optimizer, epoch):
@@ -109,7 +109,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet50',)
+    model = models.resnet50()
     #model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
