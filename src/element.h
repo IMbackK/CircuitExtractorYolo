@@ -29,6 +29,11 @@ private:
 public:
 	cv::Mat image;
 
+private:
+	int getPrecedence() const;
+	static int getPrecedence(ElementType type);
+	static ElementType typeFromChar(char c);
+
 public:
 	Element(ElementType type = E_TYPE_UNKOWN, cv::Rect rect = cv::Rect(), float prob = 1);
 	Element(const Element& a, const Element& b, bool serial = true);
