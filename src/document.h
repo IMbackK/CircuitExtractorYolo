@@ -16,6 +16,7 @@ public:
 	std::string keywords;
 	std::string basename;
 	std::string author;
+	std::string field = "Unkown";
 	std::vector<cv::Mat> pages;
 	std::vector<Circut> circuts;
 	std::vector<Graph> graphs;
@@ -24,6 +25,7 @@ public:
 
 	bool saveCircutImages(const std::filesystem::path& folder) const;
 	bool saveDatafile(const std::filesystem::path& folder);
+	void dropImages();
 
 	static std::shared_ptr<Document> load(const std::string& fileName);
 

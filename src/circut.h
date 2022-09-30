@@ -47,6 +47,7 @@ public:
 	void setDirectionHint(DirectionHint hint);
 	void detectNets();
 	bool parseCircut();
+	void dropImage();
 	std::string getString();
 	std::string getSummary();
 	~Circut();

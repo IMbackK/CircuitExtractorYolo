@@ -147,12 +147,16 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo)
 
 	probs.clear();
 	rects.clear();
-	std::vector<cv::Mat> graphImages = getYoloImages(pages, graphYolo, &probs, &rects);
-	for(size_t i = 0; i < graphImages.size(); ++i)
+
+	if(graphYolo)
 	{
-		Graph graph(extendBorder(graphImages[i], 10), probs[i], rects[i]);
-		graph.getPoints();
-		graphs.push_back(graph);
+		std::vector<cv::Mat> graphImages = getYoloImages(pages, graphYolo, &probs, &rects);
+		for(size_t i = 0; i < graphImages.size(); ++i)
+		{
+			Graph graph(extendBorder(graphImages[i], 10), probs[i], rects[i]);
+			graph.getPoints();
+			graphs.push_back(graph);
+		}
 	}
 
 	return true;
@@ -185,6 +189,15 @@ std::shared_ptr<Document> Document::load(const std::string& fileName)
 	delete popdocument;
 
 	return document;
+}
+
+void Document::dropImages()
+{
+	pages.clear();
+	for(Circut& circut : circuts)
+		circut.dropImage();
+	for(Graph& graph : graphs)
+		graph.dropImage();
 }
 
 void Document::removeEmptyCircuts()

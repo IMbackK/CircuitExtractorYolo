@@ -23,5 +23,6 @@ public:
 	cv::Rect getRect() {return rect;}
 	void setProb(float in) {prob = in;}
 	float getProb() {return prob;}
+	void dropImage();
 	std::vector<std::pair<double, double>>& getPoints();
 };

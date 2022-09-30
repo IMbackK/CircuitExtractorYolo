@@ -5,9 +5,11 @@
 #include <poppler-image.h>
 #include <poppler-global.h>
 #include <filesystem>
+#include <fstream>
 #include <vector>
 #include <future>
 #include <memory>
+#include <set>
 
 #include "log.h"
 #include "popplertocv.h"
@@ -15,11 +17,7 @@
 #include "document.h"
 #include "circut.h"
 #include "randomgen.h"
-
-static void printUsage(int argc, char** argv)
-{
-	Log(Log::INFO)<<"Usage: "<<argv[0]<<"[CIRCUTNETWORKFILENAME] [ELEMENTNETWOKRFILENAME] [GRAPHNETWORFILENAME] [PDFFILENAMES]";
-}
+#include "options.h"
 
 /*
 static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
@@ -36,36 +34,44 @@ static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 }
 */
 
-static bool save(std::shared_ptr<Document> document)
+static bool save(std::shared_ptr<Document> document, const Config config)
 {
-	bool retImage = document->saveCircutImages("./circuts");
-	bool retDatafile = document->saveDatafile("./documents");
-	bool ret = retImage && retDatafile;
-	if(!ret)
+	int ret = 0;
+	if(config.outputCircut)
+		ret += document->saveCircutImages(config.outDir/"circuts");
+	if(config.outputSummaries)
+		ret += document->saveDatafile(config.outDir/"documents");
+	if(ret != 2)
 		Log(Log::WARN)<<"Error saving files for "<<document->basename;
-	return ret;
+	return ret != 2;
 }
 
-static bool process(std::shared_ptr<Document> document, Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo)
+class CompString
+{
+public:
+	bool operator()(const std::string& a, const std::string& b) const
+	{
+		for(size_t i = 0; i < a.size(); ++i)
+		{
+			if(i > b.size())
+				return false;
+			if(a[i] < b[i])
+				return true;
+			else if(a[i] > b[i])
+				return false;
+		}
+		return true;
+	}
+};
+
+static bool process(std::shared_ptr<Document> document,
+					Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo,
+					const Config& config)
 {
 	document->process(circutYolo, elementYolo, graphYolo);
 	if(!document->circuts.empty())
-		std::thread(save, document).detach();
+		std::thread(save, document, config).detach();
 	return true;
-}
-
-static std::string getNextString(int argc, char** argv, int& argvCounter)
-{
-	while(argvCounter < argc)
-	{
-		std::string str(argv[argvCounter]);
-		++argvCounter;
-		if(str != "-v")
-			return str;
-		else
-			Log::level = Log::level == Log::DEBUG ? Log::SUPERDEBUG : Log::DEBUG;
-	}
-	return "";
 }
 
 static void dropMessage(const std::string& message, void* userdata)
@@ -74,81 +80,164 @@ static void dropMessage(const std::string& message, void* userdata)
 	(void)userdata;
 }
 
+std::vector<std::filesystem::path> toFilePaths(const std::vector<std::filesystem::path>& paths)
+{
+	std::vector<std::filesystem::path> filePaths;
+
+	for(const std::filesystem::path& pathC : paths)
+	{
+		std::filesystem::path path = pathC;
+		if(std::filesystem::is_symlink(path))
+			path = std::filesystem::read_symlink(path);
+		if(std::filesystem::is_regular_file(path))
+		{
+			filePaths.push_back(path);
+		}
+		else if(std::filesystem::is_directory(path))
+		{
+			for(const std::filesystem::directory_entry& dirent : std::filesystem::directory_iterator(path))
+			{
+				std::filesystem::path filePath = dirent.path();
+				if(std::filesystem::is_symlink(filePath))
+					filePath = std::filesystem::read_symlink(filePath);
+				if(std::filesystem::is_regular_file(filePath))
+					filePaths.push_back(filePath);
+			}
+		}
+	}
+
+	return filePaths;
+}
+
+static bool checkParams(Config& config)
+{
+	if(config.circutNetworkFileName.empty())
+	{
+		Log(Log::ERROR)<<"it is reqired to specify a circut network";
+		return false;
+	}
+
+	if(config.elementNetworkFileName.empty())
+	{
+		Log(Log::ERROR)<<"it is reqired to specify a element network";
+		return false;
+	}
+
+	if(config.graphNetworkFileName.empty())
+	{
+		Log(Log::WARN)<<"a graph network file name is not provided, wont be able to extract graphs";
+	}
+
+	if(config.outDir.empty())
+	{
+		Log(Log::INFO)<<"output directory not specified, using ./out";
+		config.outDir.assign("./out");
+	}
+
+	if(!std::filesystem::exists(config.outDir) || !std::filesystem::is_directory(config.outDir))
+	{
+		if(!std::filesystem::create_directory(config.outDir))
+		{
+			Log(Log::ERROR)<<config.outDir<<" is not a directory and a directory can not be created at this location";
+			return false;
+		}
+	}
+
+	if(config.paths.empty())
+	{
+		Log(Log::ERROR)<<"path(s) to pdf a file(s) or a directory with pdf files must be provided";
+		return false;
+	}
+
+	return true;
+}
+
+bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, const Config& config)
+{
+	std::map<std::string, size_t, CompString> allCircutMap;
+	std::map<std::string, std::map<std::string, size_t, CompString>, CompString> fields;
+
+	for(const std::shared_ptr<Document>& document : documents)
+		fields.insert({document->field, std::map<std::string, size_t, CompString>()});
+
+	Log(Log::INFO)<<"Found "<<fields.size()<<" fields:";
+	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
+		Log(Log::INFO)<<field.first;
+
+	for(const std::shared_ptr<Document>& document : documents)
+	{
+		for(Circut& circut : document->circuts)
+		{
+			std::string circutStr = circut.getString();
+
+			std::map<std::string, size_t, CompString>& fieldMap = fields.at(document->field);
+
+			auto fieldMapIterator = fieldMap;
+			if(fieldMap.find(circutStr) == fieldMap.end())
+				fieldMap.insert({circutStr, 1});
+			else
+				++fieldMap.at(circutStr);
+
+			auto iterator = allCircutMap.find(circutStr);
+			if(iterator == allCircutMap.end())
+				allCircutMap.insert({circutStr, 1});
+			else
+				++allCircutMap.at(circutStr);
+		}
+	}
+
+	std::fstream file;
+	file.open(config.outDir/"statistics.txt", std::ios_base::out);
+	file<<"All circuts:\n";
+	for(const std::pair<std::string, size_t> circut : allCircutMap)
+		file<<circut.first<<",\t"<<circut.second<<'\n';
+	file<<'\n';
+
+	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
+	{
+		file<<field.first<<":\n";
+		for(const std::pair<std::string, size_t> circut : field.second)
+			file<<circut.first<<",\t"<<circut.second<<'\n';
+	}
+	file<<'\n';
+	file.close();
+
+	return true;
+}
+
 int main(int argc, char** argv)
 {
 	rd::init();
 	Log::level = Log::INFO;
-	if(argc < 5)
-	{
-		printUsage(argc, argv);
+
+	Config config;
+	argp_parse(&argp, argc, argv, 0, 0, &config);
+
+	if(!checkParams(config))
 		return 1;
-	}
 
 	poppler::set_debug_error_function(dropMessage, nullptr);
 
 	Yolo5* circutYolo;
 	Yolo5* elementYolo;
-	Yolo5* graphYolo;
+	Yolo5* graphYolo = nullptr;
 
-	int argvCounter = 1;
-	std::string circutNetworkFileName = getNextString(argc, argv, argvCounter);
-	if(circutNetworkFileName.empty())
-	{
-		printUsage(argc, argv);
-		return 1;
-	}
 	try
 	{
-		circutYolo = new Yolo5(circutNetworkFileName, 1);
-		Log(Log::INFO)<<"Red circut network from "<<circutNetworkFileName;
+		circutYolo = new Yolo5(config.circutNetworkFileName, 1);
+		Log(Log::DEBUG)<<"Reading circut network from "<<config.circutNetworkFileName;
+		elementYolo = new Yolo5(config.elementNetworkFileName, 7);
+		Log(Log::DEBUG)<<"Reading element network from "<<config.elementNetworkFileName;
+		if(!config.graphNetworkFileName.empty())
+		{
+			graphYolo = new Yolo5(config.graphNetworkFileName, 1);
+			Log(Log::DEBUG)<<"Red element network from "<<config.graphNetworkFileName;
+		}
 	}
 	catch(const cv::Exception& ex)
 	{
-		Log(Log::ERROR)<<"Can not read network from "<<circutNetworkFileName;
+		Log(Log::ERROR)<<ex.what();
 		return 1;
-	}
-
-	std::string elementNetworkFileName = getNextString(argc, argv, argvCounter);
-	if(elementNetworkFileName.empty())
-	{
-		printUsage(argc, argv);
-		return 1;
-	}
-	try
-	{
-		elementYolo = new Yolo5(elementNetworkFileName, 7);
-		Log(Log::INFO)<<"Red element network from "<<elementNetworkFileName;
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
-		return 1;
-	}
-
-	std::string graphNetworkFileName = getNextString(argc, argv, argvCounter);
-	if(graphNetworkFileName.empty())
-	{
-		printUsage(argc, argv);
-		return 1;
-	}
-	try
-	{
-		graphYolo = new Yolo5(graphNetworkFileName, 1);
-		Log(Log::INFO)<<"Red element network from "<<graphNetworkFileName;
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<graphNetworkFileName;
-		return 1;
-	}
-
-	std::vector<std::string> fileNames;
-	fileNames.reserve(argc - argvCounter);
-	for(int i = argvCounter; i < argc; ++i)
-	{
-		if(std::string(argv[i]) == "-v")
-			Log::level = Log::level == Log::DEBUG ? Log::SUPERDEBUG : Log::DEBUG;
-		fileNames.push_back(argv[i]);
 	}
 
 	if(Log::level == Log::SUPERDEBUG)
@@ -160,12 +249,16 @@ int main(int argc, char** argv)
 	std::vector<std::shared_future<std::shared_ptr<Document>>> futures;
 	futures.reserve(8);
 
-	for(size_t i = 0; i < fileNames.size();)
+	const std::vector<std::filesystem::path> files = toFilePaths(config.paths);
+
+	std::vector<std::shared_ptr<Document>> documents;
+
+	for(size_t i = 0; i < files.size();)
 	{
-		while(i < fileNames.size() && futures.size() < 8)
+		while(i < files.size() && futures.size() < 8)
 		{
-			futures.push_back(std::async(std::launch::async, Document::load, fileNames[i]));
-			Log(Log::INFO)<<"Loading document "<<i<<" of "<<fileNames.size();
+			futures.push_back(std::async(std::launch::async, Document::load, files[i]));
+			Log(Log::INFO)<<"Loading document "<<i<<" of "<< files.size();
 			++i;
 		}
 
@@ -176,7 +269,12 @@ int main(int argc, char** argv)
 				std::shared_ptr<Document> document = futures[j].get();
 				if(document)
 				{
-					process(document, circutYolo, elementYolo, graphYolo);
+					process(document, circutYolo, elementYolo, graphYolo, config);
+					if(config.outputStatistics)
+					{
+						document->dropImages();
+						documents.push_back(document);
+					}
 					Log(Log::INFO)<<"Finished document. documents in qeue: "<<futures.size();
 				}
 				else
@@ -189,17 +287,27 @@ int main(int argc, char** argv)
 		}
 	}
 
+	Log(Log::INFO)<<"Working on final documents";
+
 	for(size_t j = 0; j < futures.size(); ++j)
 	{
 		std::shared_ptr<Document> document = futures[j].get();
 		if(document)
-			process(document, circutYolo, elementYolo, graphYolo);
+		{
+			process(document, circutYolo, elementYolo, graphYolo, config);
+			if(config.outputStatistics)
+			{
+				document->dropImages();
+				documents.push_back(document);
+			}
+		}
 		Log(Log::INFO)<<"Finished document";
 	}
 
 	delete circutYolo;
 	delete elementYolo;
-	delete graphYolo;
+	if(graphYolo)
+		delete graphYolo;
 
 	return 0;
 }

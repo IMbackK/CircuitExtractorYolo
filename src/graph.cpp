@@ -10,3 +10,8 @@ Graph::Graph(const cv::Mat& imageI, float probI, cv::Rect rectI): image(imageI),
 {
 
 }
+
+void Graph::dropImage()
+{
+	image.release();
+}

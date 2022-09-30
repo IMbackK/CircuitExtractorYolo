@@ -668,6 +668,11 @@ void Circut::setDirectionHint(DirectionHint hint)
 	dirHint = hint;
 }
 
+void Circut::dropImage()
+{
+	image.release();
+}
+
 Circut::~Circut()
 {
 	for(Element* element : elements)
