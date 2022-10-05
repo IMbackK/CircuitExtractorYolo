@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include <poppler-document.h>
+#include <poppler-page.h>
 #include <poppler-image.h>
 
 #include <opencv2/highgui.hpp>
@@ -54,9 +55,9 @@ std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo, std
 
 void Document::print(Log::Level level) const
 {
-	Log(level)<<"Document: "<<basename<<" \""<<title<<"\" by \""<<author<<'\"';
-	if(keywords.size() > 0)
-	Log(level)<<"keywords: "<<keywords;
+	Log(level)<<"Document: "<<basename<<" \""<<metadata.title<<"\" by \""<<metadata.author<<'\"';
+	if(metadata.keywords.size() > 0)
+		Log(level)<<"keywords: "<<metadata.keywords;
 }
 
 bool Document::saveCircutImages(const std::filesystem::path& folder) const
@@ -111,9 +112,9 @@ bool Document::saveDatafile(const std::filesystem::path& folder)
 		return false;
 	}
 
-	file<<"title = "<<title<<'\n';
-	file<<"author = "<<author<<'\n';
-	file<<"keywords = "<<keywords<<'\n';
+	file<<"title = "<<metadata.title<<'\n';
+	file<<"author = "<<metadata.author<<'\n';
+	file<<"keywords = "<<metadata.keywords<<'\n';
 	file<<"circuts = "<<circuts.size()<<'\n';
 
 	for(size_t i = 0; i < circuts.size(); ++i)
@@ -179,12 +180,15 @@ std::shared_ptr<Document> Document::load(const std::string& fileName)
 	}
 
 	std::shared_ptr<Document> document = std::make_shared<Document>();
-	document->keywords = popdocument->get_keywords().to_latin1();
-	document->title = popdocument->get_title().to_latin1();
-	document->author = popdocument->get_creator().to_latin1();
+	document->metadata.keywords = popdocument->get_keywords().to_latin1();
+	document->metadata.title = popdocument->get_title().to_latin1();
+	document->metadata.author = popdocument->get_creator().to_latin1();
 	document->basename = std::filesystem::path(fileName).filename();
 	document->print(Log::EXTRA);
 	document->pages = getMatsFromDocument(popdocument, cv::Size(1280, 1280));
+
+	for(size_t i = 0; i < document->pages.size(); ++i)
+		document->text.push_back(popdocument->create_page(i)->text().to_latin1());
 
 	delete popdocument;
 
@@ -210,4 +214,24 @@ void Document::removeEmptyCircuts()
 			--i;
 		}
 	}
+}
+
+std::string Document::getField() const
+{
+	return field;
+}
+
+std::vector<std::string> Document::getText()
+{
+	return text;
+}
+
+const Document::Metadata Document::getMetadata() const
+{
+	return metadata;
+}
+
+std::string Document::getBasename() const
+{
+	return basename;
 }

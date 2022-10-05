@@ -42,7 +42,7 @@ static bool save(std::shared_ptr<Document> document, const Config config)
 	if(config.outputSummaries)
 		ret += document->saveDatafile(config.outDir/"documents");
 	if(ret != 2)
-		Log(Log::WARN)<<"Error saveing files for "<<document->basename;
+		Log(Log::WARN)<<"Error saveing files for "<<document->getBasename();
 	return ret != 2;
 }
 
@@ -60,7 +60,7 @@ public:
 			else if(a[i] > b[i])
 				return false;
 		}
-		return true;
+		return false;
 	}
 };
 
@@ -158,7 +158,7 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 	std::map<std::string, std::map<std::string, size_t, CompString>, CompString> fields;
 
 	for(const std::shared_ptr<Document>& document : documents)
-		fields.insert({document->field, std::map<std::string, size_t, CompString>()});
+		fields.insert({document->getField(), std::map<std::string, size_t, CompString>()});
 
 	Log(Log::INFO)<<"Found "<<fields.size()<<" fields:";
 	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
@@ -171,7 +171,7 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 		{
 			std::string circutStr = circut.getString();
 
-			std::map<std::string, size_t, CompString>& fieldMap = fields.at(document->field);
+			std::map<std::string, size_t, CompString>& fieldMap = fields.at(document->getField());
 
 			auto fieldMapIterator = fieldMap;
 			if(fieldMap.find(circutStr) == fieldMap.end())

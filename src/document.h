@@ -12,26 +12,41 @@
 class Document
 {
 public:
-	std::string title;
-	std::string keywords;
-	std::string basename;
-	std::string author;
+
+	struct Metadata
+	{
+		std::string title;
+		std::string keywords;
+		std::string author;
+	};
+
+private:
+	std::vector<std::string> text;
 	std::string field = "Unkown";
+	Metadata metadata;
+	std::string basename;
+
+public:
+
 	std::vector<cv::Mat> pages;
 	std::vector<Circut> circuts;
 	std::vector<Graph> graphs;
 
-	void print(Log::Level level) const;
-
-	bool saveCircutImages(const std::filesystem::path& folder) const;
-	bool saveDatafile(const std::filesystem::path& folder);
-	void dropImages();
-
+	explicit Document() = default;
 	static std::shared_ptr<Document> load(const std::string& fileName);
 
-	bool process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo);
-
+	void dropImages();
 	void removeEmptyCircuts();
+
+	bool process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo);
+	bool saveCircutImages(const std::filesystem::path& folder) const;
+	bool saveDatafile(const std::filesystem::path& folder);
+	void print(Log::Level level) const;
+
+	std::string getBasename() const;
+	std::string getField() const;
+	const Metadata getMetadata() const;
+	std::vector<std::string> getText();
 };
 
 std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo,
