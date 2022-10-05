@@ -42,7 +42,7 @@ static bool save(std::shared_ptr<Document> document, const Config config)
 	if(config.outputSummaries)
 		ret += document->saveDatafile(config.outDir/"documents");
 	if(ret != 2)
-		Log(Log::WARN)<<"Error saving files for "<<document->basename;
+		Log(Log::WARN)<<"Error saveing files for "<<document->basename;
 	return ret != 2;
 }
 
@@ -247,6 +247,23 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
+	if(config.outputCircut && !std::filesystem::is_directory(config.outDir/"circuts"))
+	{
+		if(!std::filesystem::create_directory(config.outDir/"circuts"))
+		{
+			Log(Log::ERROR)<<config.outDir/"circuts"<<" is not a directory and a directory could not be created at this location";
+			return 4;
+		}
+	}
+	if(config.outputSummaries && !std::filesystem::is_directory(config.outDir/"summaries"))
+	{
+		if(!std::filesystem::create_directory(config.outDir/"summaries"))
+		{
+			Log(Log::ERROR)<<config.outDir/"summaries"<<" is not a directory and a directory could not be created at this location";
+			return 4;
+		}
+	}
+
 	if(Log::level == Log::SUPERDEBUG)
 	{
 		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
@@ -282,7 +299,7 @@ int main(int argc, char** argv)
 						document->dropImages();
 						documents.push_back(document);
 					}
-					Log(Log::INFO)<<"Finished document. documents in qeue: "<<futures.size();
+					Log(Log::INFO)<<"Finished document. documents in queue: "<<futures.size();
 				}
 				else
 				{
