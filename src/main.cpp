@@ -164,6 +164,7 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
 		Log(Log::INFO)<<field.first;
 
+	Log(Log::INFO)<<"Calculating statistics";
 	for(const std::shared_ptr<Document>& document : documents)
 	{
 		for(Circut& circut : document->circuts)
@@ -186,8 +187,14 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 		}
 	}
 
+	Log(Log::INFO)<<"Saveing statistics to "<<config.outDir/"statistics.txt";
 	std::fstream file;
 	file.open(config.outDir/"statistics.txt", std::ios_base::out);
+	if(!file.is_open())
+	{
+		Log(Log::ERROR)<<"Could not open "<<config.outDir/"statistics.txt"<<" for writeing";
+		return false;
+	}
 	file<<"All circuts:\n";
 	for(const std::pair<std::string, size_t> circut : allCircutMap)
 		file<<circut.first<<",\t"<<circut.second<<'\n';
@@ -308,6 +315,9 @@ int main(int argc, char** argv)
 	delete elementYolo;
 	if(graphYolo)
 		delete graphYolo;
+
+	if(config.outputStatistics && !outputStatistics(documents, config))
+		return 3;
 
 	return 0;
 }
