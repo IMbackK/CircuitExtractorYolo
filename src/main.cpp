@@ -287,27 +287,29 @@ int main(int argc, char** argv)
 			++i;
 		}
 
-		for(size_t j = 0; j < futures.size(); ++j)
+		while(futures.size() >= THREADS)
 		{
-			if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
+			for(size_t j = 0; j < futures.size(); ++j)
 			{
-				std::shared_ptr<Document> document = futures[j].get();
-				if(document)
+				if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
 				{
-					process(document, circutYolo, elementYolo, graphYolo, config);
-					if(config.outputStatistics)
+					std::shared_ptr<Document> document = futures[j].get();
+					if(document)
 					{
-						document->dropImages();
-						documents.push_back(document);
+						process(document, circutYolo, elementYolo, graphYolo, config);
+						if(config.outputStatistics)
+						{
+							document->dropImages();
+							documents.push_back(document);
+						}
+						Log(Log::INFO)<<"Finished document. documents in queue: "<<futures.size();
 					}
-					Log(Log::INFO)<<"Finished document. documents in queue: "<<futures.size();
+					else
+					{
+						Log(Log::WARN)<<"Failed to load document. documents in qeue: "<<futures.size();
+					}
+					futures.erase(futures.begin()+j);
 				}
-				else
-				{
-					Log(Log::WARN)<<"Failed to load document. documents in qeue: "<<futures.size();
-				}
-				futures.erase(futures.begin()+j);
-				break;
 			}
 		}
 	}
