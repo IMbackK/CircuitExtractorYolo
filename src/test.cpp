@@ -9,6 +9,7 @@
 #include <future>
 #include <memory>
 #include <string>
+#include <filesystem>
 
 #include "log.h"
 #include "document.h"
@@ -17,6 +18,8 @@
 #include "linedetection.h"
 #include "yolo.h"
 #include "document.h"
+
+#define THREADS 16
 
 static constexpr char circutNetworkFileName[]  = "../data/networks/circut/640/best.onnx";
 static constexpr char elementNetworkFileName[] = "../data/networks/element/640/best.onnx";
@@ -29,7 +32,8 @@ typedef enum
 	ALGO_ELEMENT,
 	ALGO_NET,
 	ALGO_GRAPH,
-	ALGO_COUNT
+	ALGO_COUNT,
+	ALGO_POPPLER
 } Algo;
 
 void printUsage(int argc, char** argv)
@@ -62,6 +66,8 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_NET;
 		else if(in == "graph")
 			out = ALGO_GRAPH;
+		else if(in == "poppler")
+			out = ALGO_POPPLER;
 		else
 			out = ALGO_INVALID;
 	}
@@ -174,6 +180,87 @@ void algoGraph(cv::Mat& image)
 	delete yolo;
 }
 
+static std::vector<std::filesystem::path> toFilePaths(const std::vector<std::filesystem::path>& paths)
+{
+	std::vector<std::filesystem::path> filePaths;
+
+	for(const std::filesystem::path& pathC : paths)
+	{
+		std::filesystem::path path = pathC;
+		if(std::filesystem::is_symlink(path))
+			path = std::filesystem::read_symlink(path);
+		if(std::filesystem::is_regular_file(path))
+		{
+			filePaths.push_back(path);
+		}
+		else if(std::filesystem::is_directory(path))
+		{
+			for(const std::filesystem::directory_entry& dirent : std::filesystem::directory_iterator(path))
+			{
+				std::filesystem::path filePath = dirent.path();
+				if(std::filesystem::is_symlink(filePath))
+					filePath = std::filesystem::read_symlink(filePath);
+				if(std::filesystem::is_regular_file(filePath))
+					filePaths.push_back(filePath);
+			}
+		}
+	}
+
+	return filePaths;
+}
+
+static void algoPoppler(const std::filesystem::path& path)
+{
+	std::vector<std::filesystem::path> files = toFilePaths({path});
+	/*for(size_t i = 0; i < files.size(); ++i)
+	{
+		std::shared_ptr<Document> document = Document::load(files[i]);
+		if(!document)
+		{
+			Log(Log::INFO)<<i<<"/"<<files.size()<<" skipped";
+			continue;
+		}
+		else
+		{
+			Log(Log::INFO)<<i<<"/"<<files.size();
+		}
+
+		(void)document->getText();
+	}*/
+
+	std::vector<std::future<std::shared_ptr<Document>>> futures;
+	futures.reserve(THREADS);
+
+	for(size_t i = 0; i < files.size();)
+	{
+		while(i < files.size() && futures.size() < THREADS)
+		{
+			futures.push_back(std::async(std::launch::async, Document::load, files[i]));
+			Log(Log::INFO)<<"Loading document "<<i<<" of "<< files.size();
+			++i;
+		}
+
+		while(futures.size() >= THREADS)
+		{
+			for(size_t j = 0; j < futures.size(); ++j)
+			{
+				if(futures[j].wait_for(std::chrono::microseconds(0)) == std::future_status::ready)
+				{
+					std::shared_ptr<Document> document = futures[j].get();
+					futures.erase(futures.begin()+j);
+				}
+			}
+		}
+
+		//for(size_t j = 0; j < futures.size(); ++j)
+		//{
+		//	std::shared_ptr<Document> document = futures[j].get();
+		//	break;
+		//}
+		//futures.clear();
+	}
+}
+
 int main(int argc, char** argv)
 {
 	rd::init();
@@ -186,18 +273,22 @@ int main(int argc, char** argv)
 
 	Algo algo = parseAlgo(argv[1]);
 
-	cv::Mat image = cv::imread(argv[2]);
-	if(!image.data)
-	{
-		Log(Log::ERROR)<<argv[2]<<" is not a valid image file";
-		return 2;
-	}
+	cv::Mat image;
 
-	if(Log::level == Log::SUPERDEBUG)
+	if(algo != ALGO_POPPLER)
 	{
-		cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
-		cv::imshow("Viewer", image);
-		cv::waitKey(0);
+		image = cv::imread(argv[2]);
+		if(!image.data)
+		{
+			Log(Log::ERROR)<<argv[2]<<" is not a valid image file";
+			return 2;
+		}
+		if(Log::level == Log::SUPERDEBUG)
+		{
+			cv::namedWindow( "Viewer", cv::WINDOW_NORMAL );
+			cv::imshow("Viewer", image);
+			cv::waitKey(0);
+		}
 	}
 
 	switch(algo)
@@ -213,6 +304,9 @@ int main(int argc, char** argv)
 			break;
 		case ALGO_GRAPH:
 			algoGraph(image);
+			break;
+		case ALGO_POPPLER:
+			algoPoppler(argv[2]);
 			break;
 		case ALGO_INVALID:
 		default:
