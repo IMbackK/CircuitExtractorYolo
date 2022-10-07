@@ -19,6 +19,8 @@
 #include "randomgen.h"
 #include "options.h"
 
+#define THREADS 16
+
 /*
 static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 {
@@ -270,7 +272,7 @@ int main(int argc, char** argv)
 	}
 
 	std::vector<std::shared_future<std::shared_ptr<Document>>> futures;
-	futures.reserve(8);
+	futures.reserve(THREADS);
 
 	const std::vector<std::filesystem::path> files = toFilePaths(config.paths);
 
@@ -278,7 +280,7 @@ int main(int argc, char** argv)
 
 	for(size_t i = 0; i < files.size();)
 	{
-		while(i < files.size() && futures.size() < 8)
+		while(i < files.size() && futures.size() < THREADS)
 		{
 			futures.push_back(std::async(std::launch::async, Document::load, files[i]));
 			Log(Log::INFO)<<"Loading document "<<i<<" of "<< files.size();
