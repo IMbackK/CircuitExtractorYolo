@@ -8,9 +8,11 @@
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <map>
 
 #include "popplertocv.h"
 #include "linedetection.h"
+#include "tokenize.h"
 
 std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs, std::vector<cv::Rect>* rects)
 {
@@ -224,6 +226,49 @@ std::string Document::getField() const
 std::vector<std::string> Document::getText()
 {
 	return text;
+}
+
+std::vector<size_t> Document::getWordOccurances(const std::vector<std::string>& words)
+{
+	//In the beginning where words and the words made the world.
+	std::map<std::string, size_t, CompString> wordMap;
+	//I am the words, the words are everything.
+	std::vector<std::string> textPages = getText();
+	std::string allText;
+	for(const std::string& pageText : textPages)
+	{
+		allText.append(pageText);
+		allText.push_back('\n');
+	}
+	std::vector<std::string> tokens = tokenize(allText, " ,.?!(){}[]\n\t\"'~-|+=@");
+
+
+	for(const std::string& word : words)
+		wordMap.insert({word, 0});
+
+	//Where the words end, the world ends.
+	//You cannot move forward in an absence of space
+	for(std::string &token : tokens)
+	{
+		token.resize(std::remove_if(token.begin(), token.end(), &isInvalid) - token.begin());
+		for(char& ch : token)
+		{
+			if(ch >= 65 && ch <= 90)
+				ch = ch + 32;
+		}
+
+		if(wordMap.find(token) == wordMap.end())
+			continue;
+		++wordMap.at(token);
+		//Repeat.
+	}
+
+	std::vector<size_t> occurances;
+	occurances.reserve(words.size());
+	for(size_t i = 0; i < words.size(); ++i)
+		occurances.push_back(wordMap.at(words[i]));
+
+	return occurances;
 }
 
 const Document::Metadata Document::getMetadata() const

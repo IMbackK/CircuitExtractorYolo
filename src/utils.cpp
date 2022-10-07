@@ -2,6 +2,31 @@
 #include <opencv2/imgproc.hpp>
 #include <iomanip>
 #include <algorithm>
+#include <fstream>
+
+#include "log.h"
+
+bool CompString::operator()(const std::string& a, const std::string& b) const
+{
+	for(size_t i = 0; i < a.size(); ++i)
+	{
+		if(i > b.size())
+			return false;
+		if(a[i] < b[i])
+			return true;
+		else if(a[i] > b[i])
+			return false;
+	}
+	return false;
+}
+
+bool isInvalid(const char in)
+{
+	if(in < 32 || in > 126)
+		return true;
+	else
+		return false;
+}
 
 const char* getDirectionString(DirectionHint hint)
 {
@@ -45,7 +70,12 @@ void deduplicatePoints(std::vector<cv::Point2i>& points, double tollerance)
 //taken fom opencv line detector src
 void drawLineSegments(cv::Mat& in, cv::InputArray lines, cv::Scalar color)
 {
-	CV_Assert(!in.empty() && (in.channels() == 1 || in.channels() == 3));
+	//CV_Assert(!in.empty() && (in.channels() == 1 || in.channels() == 3));
+	if(in.empty() || (in.channels() != 1 && in.channels() != 3))
+	{
+		Log(Log::WARN)<<"Could not draw lines "<<(in.empty() ? "due to empty image" : "due to image channel depth");
+		return;
+	}
 
 	if (in.channels() == 1)
 		cv::cvtColor(in, in, cv::COLOR_GRAY2BGR);
@@ -399,4 +429,24 @@ std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double to
 			break;
 	}
 	return std::pair<double, double>(padX, padY);
+}
+
+std::vector<std::string> loadFileLines(const std::filesystem::path& path)
+{
+	std::vector<std::string> lines;
+
+	std::fstream file(path, std::fstream::in);
+	if(!file.is_open())
+	{
+		Log(Log::WARN)<<"Could not open file at "<<path;
+		return lines;
+	}
+
+	while(file.good())
+	{
+		std::string str;
+		std::getline(file, str);
+		lines.push_back(str);
+	}
+	return lines;
 }

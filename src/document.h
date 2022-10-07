@@ -42,6 +42,7 @@ public:
 	bool saveCircutImages(const std::filesystem::path& folder) const;
 	bool saveDatafile(const std::filesystem::path& folder);
 	void print(Log::Level level) const;
+	std::vector<size_t> getWordOccurances(const std::vector<std::string>& words);
 
 	std::string getBasename() const;
 	std::string getField() const;

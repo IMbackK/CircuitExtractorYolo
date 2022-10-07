@@ -37,40 +37,24 @@ static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 static bool save(std::shared_ptr<Document> document, const Config config)
 {
 	int ret = 0;
-	if(config.outputCircut)
-		ret += document->saveCircutImages(config.outDir/"circuts");
-	if(config.outputSummaries)
-		ret += document->saveDatafile(config.outDir/"documents");
-	if(ret != 2)
-		Log(Log::WARN)<<"Error saveing files for "<<document->getBasename();
+	if(!document->circuts.empty())
+	{
+		if(config.outputCircut)
+			ret += document->saveCircutImages(config.outDir/"circuts");
+		if(config.outputSummaries)
+			ret += document->saveDatafile(config.outDir/"summaries");
+		if(ret != config.outputCircut + config.outputSummaries)
+			Log(Log::WARN)<<"Error saveing files for "<<document->getBasename();
+	}
 	return ret != 2;
 }
-
-class CompString
-{
-public:
-	bool operator()(const std::string& a, const std::string& b) const
-	{
-		for(size_t i = 0; i < a.size(); ++i)
-		{
-			if(i > b.size())
-				return false;
-			if(a[i] < b[i])
-				return true;
-			else if(a[i] > b[i])
-				return false;
-		}
-		return false;
-	}
-};
 
 static bool process(std::shared_ptr<Document> document,
 					Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo,
 					const Config& config)
 {
 	document->process(circutYolo, elementYolo, graphYolo);
-	if(!document->circuts.empty())
-		std::thread(save, document, config).detach();
+	std::thread(save, document, config).detach();
 	return true;
 }
 
@@ -147,6 +131,21 @@ static bool checkParams(Config& config)
 	{
 		Log(Log::ERROR)<<"path(s) to pdf a file(s) or a directory with pdf files must be provided";
 		return false;
+	}
+
+	if((!config.baysenFileName.empty() && config.wordFileName.empty()) ||
+		(!config.wordFileName.empty() && config.baysenFileName.empty()))
+	{
+		Log(Log::ERROR)<<"For document classification both a directory and a parameter file must be provided";
+		return false;
+	}
+	else if(config.baysenFileName.empty() && config.wordFileName.empty())
+	{
+		Log(Log::WARN)<<"Document classification disabled";
+	}
+	else
+	{
+		Log(Log::INFO)<<"Document classification enabled";
 	}
 
 	return true;

@@ -3,6 +3,7 @@
 #include <opencv2/core/mat.hpp>
 #include <opencv2/core/matx.hpp>
 #include <utility>
+#include <filesystem>
 #include "log.h"
 
 typedef enum {
@@ -10,6 +11,16 @@ typedef enum {
 	C_DIRECTION_VERT,
 	C_DIRECTION_UNKOWN
 } DirectionHint;
+
+class CompString
+{
+public:
+	bool operator()(const std::string& a, const std::string& b) const;
+};
+
+bool isInvalid(const char in);
+
+std::vector<std::string> loadFileLines(const std::filesystem::path& path);
 
 const char* getDirectionString(DirectionHint hint);
 
@@ -22,7 +33,6 @@ std::pair<cv::Point2i, cv::Point2i> furthestPoints(std::vector<cv::Point2i> poin
 void deduplicatePoints(std::vector<cv::Point2i>& points, double tollerance);
 
 double pointDist(const cv::Point2i& pointA, const cv::Point2i& pointB);
-
 
 void drawLineSegments(cv::Mat& in, cv::InputArray lines, cv::Scalar color = cv::Scalar(0, 0, 255)); //taken fom opencv line detector src
 

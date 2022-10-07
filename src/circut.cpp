@@ -638,7 +638,7 @@ std::string Circut::getSummary()
 {
 	std::stringstream ss;
 	ss<<"Rect = "<<rect<<'\n';
-	ss<<"Model = "<<getString();
+	ss<<"Model = "<<getString()<<'\n';
 	ss<<"Direction = "<<getDirectionString(dirHint);
 	return ss.str();
 }

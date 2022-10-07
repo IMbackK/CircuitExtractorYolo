@@ -20,8 +20,10 @@ static struct argp_option options[] =
   {"graph-network",		'g', "[FILE]",		0,	"Graph network file name"},
   {"out-dir",			'o', "[DIRECTORY]",	0,	"Place to save output" },
   {"circut-images",		'i', 0,				0,	"Save annotated images of the found circuts"},
-  {"document-summaries", 's', 0,			0,	"Save document summaries"},
-  {"statistics", 		 't', 0,			0,	"Save statistics"},
+  {"document-summaries",'s', 0,				0,	"Save document summaries"},
+  {"statistics", 		't', 0,				0,	"Save statistics"},
+  {"words", 			'w', "[FILE]",		0,	"Dictionary of words to use for baysen paper catigorization"},
+  {"baysen", 			'b', "[FILE]",		0,	"Baysen classifier parameters"},
   { 0 }
 };
 
@@ -30,6 +32,8 @@ struct Config
 	std::filesystem::path circutNetworkFileName;
 	std::filesystem::path elementNetworkFileName;
 	std::filesystem::path graphNetworkFileName;
+	std::filesystem::path baysenFileName;
+	std::filesystem::path wordFileName;
 	std::filesystem::path outDir;
 	std::vector<std::filesystem::path> paths;
 	bool outputCircut = false;
@@ -69,6 +73,12 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 't':
 		config->outputStatistics = true;
+		break;
+	case 'w':
+		config->wordFileName.assign(arg);
+		break;
+	case 'b':
+		config->baysenFileName.assign(arg);
 		break;
 	case ARGP_KEY_ARG:
 		config->paths.push_back(std::filesystem::path(arg));

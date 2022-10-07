@@ -15,6 +15,7 @@ set(SRC_FILES
 	src/net.cpp
 	src/graph.cpp
 	src/thinning.cpp
+	src/tokenize.cpp
 	)
 
 find_package(OpenCV REQUIRED)

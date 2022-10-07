@@ -27,7 +27,7 @@ public:
 
 	enum Level
 	{
-		SUPERDEBUG,
+		SUPERDEBUG = 0,
 		DEBUG,
 		EXTRA,
 		INFO,
