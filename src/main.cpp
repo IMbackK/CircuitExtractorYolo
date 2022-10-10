@@ -194,6 +194,8 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 		}
 	}
 
+	size_t allCircutOtherCount = removeLessThanN(allCircutMap, 3);
+
 	Log(Log::INFO)<<"Saveing statistics to "<<config.outDir/"statistics.txt";
 	std::fstream file;
 	file.open(config.outDir/"statistics.txt", std::ios_base::out);
@@ -205,13 +207,15 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 	file<<"All circuts:\n";
 	for(const std::pair<std::string, size_t> circut : allCircutMap)
 		file<<circut.second<<",\t"<<circut.first<<'\n';
-	file<<'\n';
+	file<<"other"<<",\t"<<allCircutOtherCount<<"\n\n";
 
-	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
+	for(std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
 	{
+		size_t otherCount = removeLessThanN(field.second, 3);
 		file<<field.first<<":\n";
 		for(const std::pair<std::string, size_t> circut : field.second)
 			file<<circut.second<<", \t"<<circut.first<<'\n';
+		file<<"other"<<",\t"<<otherCount<<"\n\n";
 	}
 	file<<'\n';
 	file.close();
