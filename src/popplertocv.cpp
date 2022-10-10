@@ -40,6 +40,11 @@ std::vector<cv::Mat> getMatsFromDocument(poppler::document* document, const cv::
 
 	int pagesCount = document->pages();
 
+	if(pagesCount > 10)
+	{
+		Log(Log::WARN)<<"only loading first 10 pages of "<<pagesCount;
+		pagesCount = 10;
+	}
 	std::vector<cv::Mat> output;
 
 	for(int i = 0; i < pagesCount; ++i)
@@ -47,11 +52,14 @@ std::vector<cv::Mat> getMatsFromDocument(poppler::document* document, const cv::
 		poppler::page* page = document->create_page(i);
 		poppler::rectf pagesize = page->page_rect();
 		poppler::image image = renderer.render_page(page, size.width/4, size.height/4);
-		cv::Mat cvBuffer(image.height(), image.width(), popplerEnumToCvFormat(image.format()), image.data(), image.bytes_per_row());
+		cv::Mat cvBufferConst(image.height(), image.width(), popplerEnumToCvFormat(image.format()),
+		                 const_cast<char*>(image.const_data()), image.bytes_per_row());
+		cv::Mat cvBuffer(cvBufferConst.clone());
 		if(image.format() == poppler::image::format_rgb24 || image.format() == poppler::image::format_argb32)
 			cvtColor(cvBuffer, cvBuffer, cv::COLOR_RGB2BGR);
 		cv::resize(cvBuffer, cvBuffer, size, 0, 0, cv::INTER_LINEAR);
 		output.push_back(cvBuffer);
+		delete page;
 	}
 	return output;
 }
