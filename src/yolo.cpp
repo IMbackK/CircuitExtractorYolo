@@ -28,6 +28,17 @@ numClasses(numCassesI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
 	net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
 }
 
+Yolo5::Yolo5(size_t networkDataSize, const char* networkData, size_t numCassesI, int trainSizeXIn, int trainSizeYIn):
+numClasses(numCassesI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
+{
+	dimensions = 5+numClasses;
+	Log(Log::INFO, false)<<"Reading net from internal buffer";
+	net = cv::dnn::readNetFromONNX(networkData, networkDataSize);
+	Log(Log::INFO)<<"compleated";
+	net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+	net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+}
+
 cv::Mat Yolo5::resizeWithBorder(const cv::Mat& mat)
 {
 	assert(mat.dims == 2);

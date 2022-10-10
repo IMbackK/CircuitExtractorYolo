@@ -4,12 +4,15 @@
 #include <poppler-document.h>
 #include <poppler-image.h>
 #include <poppler-global.h>
+#include <poppler-page.h>
+#include <poppler-page-renderer.h>
 #include <filesystem>
 #include <vector>
 #include <future>
 #include <memory>
 #include <string>
 #include <filesystem>
+#include <thread>
 
 #include "log.h"
 #include "document.h"
@@ -18,12 +21,9 @@
 #include "linedetection.h"
 #include "yolo.h"
 #include "document.h"
+#include "resources.h"
 
 #define THREADS 16
-
-static constexpr char circutNetworkFileName[]  = "../data/networks/circut/640/best.onnx";
-static constexpr char elementNetworkFileName[] = "../data/networks/element/640/best.onnx";
-static constexpr char graphNetworkFileName[] = "../data/networks/graph/640/best.onnx";
 
 typedef enum
 {
@@ -76,16 +76,9 @@ Algo parseAlgo(const std::string& in)
 
 void algoCircut(cv::Mat& image)
 {
-	Yolo5* yolo;
-	try
-	{
-		yolo = new Yolo5(circutNetworkFileName, 1, 640, 640);
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<circutNetworkFileName;
-		return;
-	}
+	size_t length;
+	const char* data = res::circutNetwork(length);
+	Yolo5* yolo = new Yolo5(length, data, 1, 640, 640);
 
 	std::vector<cv::Mat> images({image});
 	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
@@ -95,16 +88,9 @@ void algoCircut(cv::Mat& image)
 
 void algoElement(cv::Mat& image)
 {
-	Yolo5* yolo;
-	try
-	{
-		yolo = new Yolo5(elementNetworkFileName, 7, 640, 640);
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
-		return;
-	}
+	size_t length;
+	const char* data = res::elementNetwork(length);
+	Yolo5* yolo = new Yolo5(length, data, 7, 640, 640);
 
 	Circut circut;
 	circut.image = extendBorder(image, 15);
@@ -128,16 +114,9 @@ void algoElement(cv::Mat& image)
 
 void algoLine(cv::Mat& image)
 {
-	Yolo5* yolo;
-	try
-	{
-		yolo = new Yolo5(elementNetworkFileName, 7, 640, 640);
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<elementNetworkFileName;
-		return;
-	}
+	size_t length;
+	const char* data = res::elementNetwork(length);
+	Yolo5* yolo = new Yolo5(length, data, 7, 640, 640);
 
 	Circut circut;
 	circut.image = extendBorder(image, 15);
@@ -163,16 +142,9 @@ void algoLine(cv::Mat& image)
 
 void algoGraph(cv::Mat& image)
 {
-	Yolo5* yolo;
-	try
-	{
-		yolo = new Yolo5(graphNetworkFileName, 1, 640, 640);
-	}
-	catch(const cv::Exception& ex)
-	{
-		Log(Log::ERROR)<<"Can not read network from "<<graphNetworkFileName;
-		return;
-	}
+	size_t length;
+	const char* data = res::graphNetwork(length);
+	Yolo5* yolo = new Yolo5(length, data, 1, 640, 640);
 
 	std::vector<cv::Mat> images({image});
 	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
@@ -207,6 +179,112 @@ static std::vector<std::filesystem::path> toFilePaths(const std::vector<std::fil
 	}
 
 	return filePaths;
+}
+
+static int popplerEnumToCvFormat(int format)
+{
+	int cvFormat;
+	switch(format)
+	{
+		case poppler::image::format_mono:
+			cvFormat = CV_8UC1;
+			break;
+		case poppler::image::format_rgb24:
+			cvFormat = CV_8UC3;
+			break;
+		case poppler::image::format_argb32:
+			cvFormat = CV_8UC4;
+			break;
+		case poppler::image::format_gray8:
+			cvFormat = CV_8UC1;
+			break;
+		case poppler::image::format_bgr24:
+			cvFormat = CV_8UC3;
+			break;
+		case poppler::image::format_invalid:
+		default:
+			cvFormat = -1;
+	}
+	return cvFormat;
+}
+
+void documentPipeline(const std::vector<std::filesystem::path>& files, size_t stride, size_t offset)
+{
+	poppler::page_renderer renderer;
+	renderer.set_render_hint(poppler::page_renderer::antialiasing, true);
+
+	for(size_t i = offset; i < files.size(); i+=stride)
+	{
+		/*std::shared_ptr<Document> document = Document::load(files[i]);*/
+		poppler::document* document = poppler::document::load_from_file(files[i]);
+		if(!document)
+		{
+			Log(Log::ERROR)<<"Could not load pdf file from "<<files[i];
+			continue;
+		}
+
+		if(document->is_encrypted())
+		{
+			Log(Log::ERROR)<<"Only unencrypted files are supported";
+			continue;
+		}
+
+		int pagesCount = document->pages();
+		if(pagesCount > 10)
+		{
+			Log(Log::WARN)<<"only loading first 2 pages down from "<<pagesCount;
+			pagesCount = 2;
+		}
+		std::vector<cv::Mat> output;
+		for(int j = 0; j < pagesCount; ++j)
+		{
+			poppler::page* page = document->create_page(j);
+			poppler::image image = renderer.render_page(page, 300, 300);
+
+			const char* data = image.const_data();
+			if(data)
+				Log(Log::DEBUG)<<data[0];
+			else
+				Log(Log::DEBUG)<<"No data";
+			delete page;
+			cv::Mat cvBufferConst(image.height(), image.width(), popplerEnumToCvFormat(image.format()), const_cast<char*>(image.const_data()), image.bytes_per_row());
+			cv::Mat cvBuffer(cvBufferConst.clone());
+			output.push_back(cvBuffer);
+
+			cv::imwrite("out.png", cvBuffer);
+		}
+
+		for(const cv::Mat& mat : output)
+		{
+			cv::imwrite("out.png", mat);
+		}
+
+		delete document;
+		if(!document)
+		{
+			Log(Log::INFO)<<i<<"/"<<files.size()<<" skipped";
+			continue;
+		}
+		else
+		{
+			Log(Log::INFO)<<i<<"/"<<files.size();
+		}
+	}
+}
+
+static void altAlgoPoppler(const std::filesystem::path& path)
+{
+	std::vector<std::filesystem::path> files = toFilePaths({path});
+	std::vector<std::thread> threads(THREADS);
+	for(size_t i = 0; i < threads.size(); ++i)
+	{
+		threads[i] = std::thread(documentPipeline, files, THREADS, i);
+	}
+
+	for(size_t i = 0; i < threads.size(); ++i)
+	{
+		threads[i].join();
+	}
 }
 
 static void algoPoppler(const std::filesystem::path& path)
@@ -248,16 +326,19 @@ static void algoPoppler(const std::filesystem::path& path)
 				{
 					std::shared_ptr<Document> document = futures[j].get();
 					futures.erase(futures.begin()+j);
+					if(document)
+					{
+						for(const cv::Mat& mat : document->pages)
+						{
+							if(!mat.u)
+								assert(false);
+							else
+								Log(Log::DEBUG)<<"refcount: "<<mat.u->refcount;
+						}
+					}
 				}
 			}
 		}
-
-		//for(size_t j = 0; j < futures.size(); ++j)
-		//{
-		//	std::shared_ptr<Document> document = futures[j].get();
-		//	break;
-		//}
-		//futures.clear();
 	}
 }
 
@@ -306,7 +387,7 @@ int main(int argc, char** argv)
 			algoGraph(image);
 			break;
 		case ALGO_POPPLER:
-			algoPoppler(argv[2]);
+			altAlgoPoppler(argv[2]);
 			break;
 		case ALGO_INVALID:
 		default:

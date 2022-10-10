@@ -18,6 +18,7 @@
 #include "circut.h"
 #include "randomgen.h"
 #include "options.h"
+#include "resources.h"
 
 #define THREADS 16
 
@@ -48,6 +49,8 @@ static bool save(std::shared_ptr<Document> document, const Config config)
 		if(ret != config.outputCircut + config.outputSummaries)
 			Log(Log::WARN)<<"Error saveing files for "<<document->getBasename();
 	}
+
+	document->dropImages();
 	return ret != 2;
 }
 
@@ -98,21 +101,11 @@ std::vector<std::filesystem::path> toFilePaths(const std::vector<std::filesystem
 static bool checkParams(Config& config)
 {
 	if(config.circutNetworkFileName.empty())
-	{
-		Log(Log::ERROR)<<"it is reqired to specify a circut network";
-		return false;
-	}
-
+		Log(Log::INFO)<<"Internal circut network will be used";
 	if(config.elementNetworkFileName.empty())
-	{
-		Log(Log::ERROR)<<"it is reqired to specify a element network";
-		return false;
-	}
-
+		Log(Log::INFO)<<"Internal element network will be used";
 	if(config.graphNetworkFileName.empty())
-	{
 		Log(Log::WARN)<<"a graph network file name is not provided, wont be able to extract graphs";
-	}
 
 	if(config.outDir.empty())
 	{
@@ -135,22 +128,32 @@ static bool checkParams(Config& config)
 		return false;
 	}
 
-	if((!config.baysenFileName.empty() && config.wordFileName.empty()) ||
-		(!config.wordFileName.empty() && config.baysenFileName.empty()))
+	if(config.baysenFileName.empty() && !config.wordFileName.empty())
 	{
-		Log(Log::ERROR)<<"For document classification both a directory and a parameter file must be provided";
+		Log(Log::ERROR)<<"For document classification both a parameter file must be provided";
 		return false;
 	}
-	else if(config.baysenFileName.empty() && config.wordFileName.empty())
-	{
+	if(config.baysenFileName.empty())
 		Log(Log::WARN)<<"Document classification disabled";
-	}
-	else
-	{
-		Log(Log::INFO)<<"Document classification enabled";
-	}
+
+
+	if(!config.baysenFileName.empty() && config.wordFileName.empty())
+		Log(Log::INFO)<<"Internal word dictionary will be used";
 
 	return true;
+}
+
+size_t removeLessThanN(std::map<std::string, size_t, CompString>& map, size_t n)
+{
+	size_t otherCount = 0;
+	for(const std::pair<std::string, size_t> circut : map)
+	{
+		if(circut.second < n)
+			otherCount += circut.second;
+	}
+	std::erase_if(map, [n](const std::pair<std::string, size_t>& circut)->bool{return circut.second < n;});
+
+	return otherCount;
 }
 
 bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, const Config& config)
@@ -171,6 +174,9 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 		for(Circut& circut : document->circuts)
 		{
 			std::string circutStr = circut.getString();
+
+			if(circutStr.find("s") != std::string::npos || circutStr.find("x") != std::string::npos)
+				continue;
 
 			std::map<std::string, size_t, CompString>& fieldMap = fields.at(document->getField());
 
@@ -198,14 +204,14 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 	}
 	file<<"All circuts:\n";
 	for(const std::pair<std::string, size_t> circut : allCircutMap)
-		file<<circut.first<<",\t"<<circut.second<<'\n';
+		file<<circut.second<<",\t"<<circut.first<<'\n';
 	file<<'\n';
 
 	for(const std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
 	{
 		file<<field.first<<":\n";
 		for(const std::pair<std::string, size_t> circut : field.second)
-			file<<circut.first<<",\t"<<circut.second<<'\n';
+			file<<circut.second<<", \t"<<circut.first<<'\n';
 	}
 	file<<'\n';
 	file.close();
@@ -232,10 +238,30 @@ int main(int argc, char** argv)
 
 	try
 	{
-		circutYolo = new Yolo5(config.circutNetworkFileName, 1);
-		Log(Log::DEBUG)<<"Reading circut network from "<<config.circutNetworkFileName;
-		elementYolo = new Yolo5(config.elementNetworkFileName, 7);
-		Log(Log::DEBUG)<<"Reading element network from "<<config.elementNetworkFileName;
+		if(config.circutNetworkFileName.empty())
+		{
+			size_t length;
+			const char* data = res::circutNetwork(length);
+			circutYolo = new Yolo5(length, data, 1);
+		}
+		else
+		{
+			Log(Log::DEBUG)<<"Reading circut network from "<<config.circutNetworkFileName;
+			circutYolo = new Yolo5(config.circutNetworkFileName, 1);
+		}
+
+		if(config.elementNetworkFileName.empty())
+		{
+			size_t length;
+			const char* data = res::elementNetwork(length);
+			elementYolo = new Yolo5(length, data, 7);
+		}
+		else
+		{
+			Log(Log::DEBUG)<<"Reading circut network from "<<config.circutNetworkFileName;
+			elementYolo = new Yolo5(config.elementNetworkFileName, 7);
+		}
+
 		if(!config.graphNetworkFileName.empty())
 		{
 			graphYolo = new Yolo5(config.graphNetworkFileName, 1);
@@ -298,10 +324,7 @@ int main(int argc, char** argv)
 					{
 						process(document, circutYolo, elementYolo, graphYolo, config);
 						if(config.outputStatistics)
-						{
-							document->dropImages();
 							documents.push_back(document);
-						}
 						Log(Log::INFO)<<"Finished document. documents in queue: "<<futures.size();
 					}
 					else
@@ -323,10 +346,7 @@ int main(int argc, char** argv)
 		{
 			process(document, circutYolo, elementYolo, graphYolo, config);
 			if(config.outputStatistics)
-			{
-				document->dropImages();
 				documents.push_back(document);
-			}
 		}
 		Log(Log::INFO)<<"Finished document";
 	}

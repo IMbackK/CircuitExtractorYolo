@@ -35,6 +35,7 @@ private:
 public:
 	Yolo5(const cv::dnn::Net &netI, size_t numClassesI, int trainSizeXIn = 640, int trainSizeYIn = 640);
 	Yolo5(const std::string& fileName, size_t numClassesI, int trainSizeXIn = 640, int trainSizeYIn = 640);
+	Yolo5(size_t networkDataSize, const char* networkData, size_t numCassesI, int trainSizeXIn = 640, int trainSizeYIn = 640);
 	std::vector<DetectedClass> detect(const cv::Mat& image);
 
 	static void drawDetection(cv::Mat& image, const DetectedClass& detection);
