@@ -20,6 +20,7 @@ static struct argp_option options[] =
   {"graph-network",		'g', "[FILE]",		0,	"Graph network file name"},
   {"out-dir",			'o', "[DIRECTORY]",	0,	"Place to save output" },
   {"circut-images",		'i', 0,				0,	"Save annotated images of the found circuts"},
+  {"element-labels",	'y', 0,				0,	"save element labels"},
   {"document-summaries",'s', 0,				0,	"Save document summaries"},
   {"statistics", 		't', 0,				0,	"Save statistics"},
   {"words", 			'w', "[FILE]",		0,	"Dictionary of words to use for baysen paper catigorization"},
@@ -37,6 +38,7 @@ struct Config
 	std::filesystem::path outDir;
 	std::vector<std::filesystem::path> paths;
 	bool outputCircut = false;
+	bool outputElementLabels = false;
 	bool outputSummaries = false;
 	bool outputStatistics = false;
 };
@@ -79,6 +81,9 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		break;
 	case 'b':
 		config->baysenFileName.assign(arg);
+		break;
+	case 'y':
+		config->outputElementLabels = true;
 		break;
 	case ARGP_KEY_ARG:
 		config->paths.push_back(std::filesystem::path(arg));

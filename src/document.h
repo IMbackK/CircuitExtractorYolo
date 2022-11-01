@@ -40,6 +40,7 @@ public:
 
 	bool process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo);
 	bool saveCircutImages(const std::filesystem::path& folder) const;
+	bool saveElementLabels(const std::filesystem::path& folder) const;
 	bool saveDatafile(const std::filesystem::path& folder);
 	void print(Log::Level level) const;
 	std::vector<size_t> getWordOccurances(const std::vector<std::string>& words);

@@ -39,19 +39,25 @@ static void cleanDocuments(std::vector<std::shared_ptr<Document>> documents)
 
 static bool save(std::shared_ptr<Document> document, const Config config)
 {
-	int ret = 0;
+	bool result = true;
 	if(!document->circuts.empty())
 	{
+		int ret = 0;
 		if(config.outputCircut)
 			ret += document->saveCircutImages(config.outDir/"circuts");
+		if(config.outputElementLabels)
+			ret += document->saveElementLabels(config.outDir/"elements");
 		if(config.outputSummaries)
 			ret += document->saveDatafile(config.outDir/"summaries");
-		if(ret != config.outputCircut + config.outputSummaries)
+		if(ret != config.outputCircut + config.outputSummaries + config.outputElementLabels)
+		{
 			Log(Log::WARN)<<"Error saveing files for "<<document->getBasename();
+			result = false;
+		}
 	}
 
 	document->dropImages();
-	return ret != 2;
+	return result;
 }
 
 static bool process(std::shared_ptr<Document> document,

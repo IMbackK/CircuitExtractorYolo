@@ -43,6 +43,7 @@ public:
 	Circut(cv::Mat imageI, float probI, cv::Rect rectI);
 	Circut operator=(const Circut& in);
 	cv::Mat ciructImage() const;
+	cv::Mat plainCircutImage() const;
 	void detectElements(Yolo5* yolo);
 	void setDirectionHint(DirectionHint hint);
 	void detectNets();
@@ -50,6 +51,7 @@ public:
 	void dropImage();
 	std::string getString();
 	std::string getSummary();
+	std::string getYoloLabels() const;
 	~Circut();
 	DirectionHint estimateDirection();
 };

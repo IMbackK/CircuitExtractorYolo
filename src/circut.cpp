@@ -35,6 +35,11 @@ Circut::Circut(cv::Mat imageI, float probI, cv::Rect rectI): image(imageI), prob
 {
 }
 
+cv::Mat Circut::plainCircutImage() const
+{
+	return image;
+}
+
 cv::Mat Circut::ciructImage() const
 {
 	cv::Mat visulization;
@@ -640,6 +645,19 @@ std::string Circut::getSummary()
 	ss<<"Rect = "<<rect<<'\n';
 	ss<<"Model = "<<getString()<<'\n';
 	ss<<"Direction = "<<getDirectionString(dirHint);
+	return ss.str();
+}
+
+std::string Circut::getYoloLabels() const
+{
+	std::stringstream ss;
+	for(const Element* element : elements)
+	{
+		const cv::Rect rect = element->getRect();
+		ss<<static_cast<int>(element->getType());
+		ss<<' '<<(static_cast<double>(rect.x)/image.cols)<<' '<<(static_cast<double>(rect.y)/image.cols);
+		ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.cols)<<'\n';
+	}
 	return ss.str();
 }
 

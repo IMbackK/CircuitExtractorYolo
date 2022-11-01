@@ -62,6 +62,51 @@ void Document::print(Log::Level level) const
 		Log(level)<<"keywords: "<<metadata.keywords;
 }
 
+bool Document::saveElementLabels(const std::filesystem::path& folder) const
+{
+	if(!std::filesystem::is_directory(folder))
+	{
+		if(!std::filesystem::create_directory(folder))
+		{
+			Log(Log::ERROR)<<folder<<" is not a valid directory and no directory could be created at this location";
+			return false;
+		}
+	}
+	for(size_t i = 0; i < circuts.size(); ++i)
+	{
+		const Circut& circut = circuts[i];
+		if(circut.elements.empty())
+			continue;
+		std::filesystem::path path = folder /
+			std::filesystem::path(basename + "_" +
+			std::to_string(i) + "P" +
+			std::to_string(circut.prob) + ".png");
+		try
+		{
+			cv::imwrite(path, circut.plainCircutImage());
+
+			std::fstream file;
+			std::filesystem::path labelPath = path;
+			labelPath.replace_extension(".txt");
+			file.open(labelPath, std::ios_base::out);
+			if(!file.is_open())
+			{
+				Log(Log::ERROR)<<"Could not open file "<<labelPath<<" for writeing";
+				return false;
+			}
+			file<<circut.getYoloLabels();
+			file.close();
+			Log(Log::INFO)<<"Wrote labels to "<<labelPath;
+		}
+		catch(const cv::Exception& ex)
+		{
+			Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
+			return false;
+		}
+	}
+	return true;
+}
+
 bool Document::saveCircutImages(const std::filesystem::path& folder) const
 {
 	if(!std::filesystem::is_directory(folder))
@@ -84,13 +129,13 @@ bool Document::saveCircutImages(const std::filesystem::path& folder) const
 		try
 		{
 			cv::imwrite(path, circut.ciructImage());
+			Log(Log::INFO)<<"Wrote image to "<<path;
 		}
 		catch(const cv::Exception& ex)
 		{
 			Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
 			return false;
 		}
-		Log(Log::INFO)<<"Wrote image to "<<path;
 	}
 	return true;
 }
