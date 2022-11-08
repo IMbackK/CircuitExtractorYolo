@@ -655,8 +655,8 @@ std::string Circut::getYoloLabels() const
 	{
 		const cv::Rect rect = element->getRect();
 		ss<<static_cast<int>(element->getType());
-		ss<<' '<<(static_cast<double>(rect.x)/image.cols)<<' '<<(static_cast<double>(rect.y)/image.cols);
-		ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.cols)<<'\n';
+		ss<<' '<<(static_cast<double>(rect.x+rect.width/2)/image.cols)<<' '<<(static_cast<double>(rect.y+rect.height/2)/image.rows);
+		ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.rows)<<'\n';
 	}
 	return ss.str();
 }

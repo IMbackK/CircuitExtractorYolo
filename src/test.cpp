@@ -11,7 +11,7 @@
 #include <future>
 #include <memory>
 #include <string>
-#include <filesystem>
+#include <fstream>
 #include <thread>
 
 #include "log.h"
@@ -107,6 +107,30 @@ void algoElement(cv::Mat& image)
 	{
 		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
+	}
+
+	std::filesystem::path path = "out.png";
+	try
+	{
+		cv::imwrite(path, circut.plainCircutImage());
+
+		std::fstream file;
+		std::filesystem::path labelPath = path;
+		labelPath.replace_extension(".txt");
+		file.open(labelPath, std::ios_base::out);
+		if(!file.is_open())
+		{
+			Log(Log::ERROR)<<"Could not open file "<<labelPath<<" for writeing";
+			return;
+		}
+		file<<circut.getYoloLabels();
+		file.close();
+		Log(Log::INFO)<<"Wrote labels to "<<labelPath;
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
+		return;
 	}
 
 	delete yolo;

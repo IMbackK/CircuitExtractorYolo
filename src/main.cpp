@@ -210,18 +210,30 @@ bool outputStatistics(const std::vector<std::shared_ptr<Document>>& documents, c
 		Log(Log::ERROR)<<"Could not open "<<config.outDir/"statistics.txt"<<" for writeing";
 		return false;
 	}
-	file<<"All circuts:\n";
+	if(fields.size() > 1)
+		file<<"All circuts:\n";
+	size_t i = 0;
 	for(const std::pair<std::string, size_t> circut : allCircutMap)
-		file<<circut.second<<",\t"<<circut.first<<'\n';
-	file<<"other"<<",\t"<<allCircutOtherCount<<"\n\n";
-
-	for(std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
 	{
-		size_t otherCount = removeLessThanN(field.second, 3);
-		file<<field.first<<":\n";
-		for(const std::pair<std::string, size_t> circut : field.second)
-			file<<circut.second<<", \t"<<circut.first<<'\n';
-		file<<"other"<<",\t"<<otherCount<<"\n\n";
+		file<<i<<",\t"<<circut.second<<",\t"<<circut.first<<'\n';
+		++i;
+	}
+	file<<i<<",\t"<<allCircutOtherCount<<",\tother\n\n";
+
+	if(fields.size() > 1)
+	{
+		i = 0;
+		for(std::pair<std::string, std::map<std::string, size_t, CompString>> field : fields)
+		{
+			size_t otherCount = removeLessThanN(field.second, 3);
+			file<<field.first<<":\n";
+			for(const std::pair<std::string, size_t> circut : field.second)
+			{
+				file<<i<<",\t"<<circut.second<<",\t"<<circut.first<<'\n';
+				++i;
+			}
+			file<<i<<",\t"<<otherCount<<",\tother\n\n";
+		}
 	}
 	file<<'\n';
 	file.close();
