@@ -12,13 +12,14 @@ class Circut
 {
 private:
 	std::string model;
+	std::vector<Element*> elements;
+	cv::Rect rect;
+	std::vector<Net> nets;
+
 public:
 
 	float prob;
-	cv::Rect rect;
 	cv::Mat image;
-	std::vector<Element*> elements;
-	std::vector<Net> nets;
 	DirectionHint dirHint = C_DIRECTION_UNKOWN;
 
 private:
@@ -45,6 +46,7 @@ public:
 	cv::Mat ciructImage() const;
 	cv::Mat plainCircutImage() const;
 	void detectElements(Yolo5* yolo);
+	const std::vector<Element*>& getElements() const;
 	void setDirectionHint(DirectionHint hint);
 	void detectNets();
 	bool parseCircut();

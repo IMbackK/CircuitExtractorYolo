@@ -91,7 +91,8 @@ int Element::getPrecedence() const
 	}
 }
 
-Element::Element(ElementType typeI, cv::Rect rectI, float probI): type(typeI), rect(rectI), prob(probI)
+Element::Element(ElementType typeI, cv::Mat imageI, cv::Rect rectI, float probI):
+type(typeI), rect(rectI), prob(probI), image(imageI)
 {
 
 }
@@ -138,6 +139,11 @@ cv::Rect Element::getRect() const
 double Element::getProb() const
 {
 	return prob;
+}
+
+const cv::Mat Element::getImage() const
+{
+	return image;
 }
 
 cv::Point Element::center() const

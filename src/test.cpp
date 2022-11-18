@@ -30,6 +30,7 @@ typedef enum
 	ALGO_INVALID = -1,
 	ALGO_CIRCUT = 0,
 	ALGO_ELEMENT,
+	ALGO_ELEMENT_CROPS,
 	ALGO_NET,
 	ALGO_GRAPH,
 	ALGO_COUNT,
@@ -39,7 +40,7 @@ typedef enum
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
-	Log(Log::INFO)<<"Valid algos: circut, element, net, graph";
+	Log(Log::INFO)<<"Valid algos: circut, element, elementcrops, net, graph";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -68,6 +69,8 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_GRAPH;
 		else if(in == "poppler")
 			out = ALGO_POPPLER;
+		else if(in == "elementcrops")
+			out = ALGO_ELEMENT_CROPS;
 		else
 			out = ALGO_INVALID;
 	}
@@ -82,6 +85,57 @@ void algoCircut(cv::Mat& image)
 
 	std::vector<cv::Mat> images({image});
 	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
+
+	delete yolo;
+}
+
+void algoElementCrops(cv::Mat& image)
+{
+	size_t length;
+	const char* data = res::elementNetwork(length);
+	Yolo5* yolo = new Yolo5(length, data, 7, 640, 640);
+
+	Circut circut;
+	circut.image = extendBorder(image, 15);
+
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::imshow("Viewer", circut.image);
+		cv::waitKey(0);
+	}
+
+	circut.detectElements(yolo);
+
+	if(Log::level == Log::SUPERDEBUG)
+	{
+		cv::imshow("Viewer", circut.ciructImage());
+		cv::waitKey(0);
+	}
+
+	std::filesystem::path outDir = "out";
+	if(!std::filesystem::exists(outDir) || !std::filesystem::is_directory(outDir))
+	{
+		if(!std::filesystem::create_directory(outDir))
+		{
+			Log(Log::ERROR)<<outDir<<" is not a directory and a directory can not be created at this location";
+			return;
+		}
+	}
+
+	try
+	{
+		size_t i = 0;
+		for(Element* element : circut.getElements())
+		{
+			cv::imwrite(outDir/(std::to_string(i)+".png"), element->getImage());
+			++i;
+		}
+	}
+	catch(const cv::Exception& ex)
+	{
+		Log(Log::ERROR)<<"Cant write to "<<outDir<<' '<<ex.what();
+		return;
+	}
 
 	delete yolo;
 }
@@ -403,6 +457,9 @@ int main(int argc, char** argv)
 			break;
 		case ALGO_ELEMENT:
 			algoElement(image);
+			break;
+		case ALGO_ELEMENT_CROPS:
+			algoElementCrops(image);
 			break;
 		case ALGO_NET:
 			algoLine(image);

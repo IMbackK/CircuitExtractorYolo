@@ -97,9 +97,7 @@ void Circut::detectElements(Yolo5* yolo)
 	{
 		try
 		{
-			Element* element = new Element(static_cast<ElementType>(detection.classId), detection.rect, detection.prob);
-			element->image = image(detection.rect);
-
+			Element* element = new Element(static_cast<ElementType>(detection.classId), image(detection.rect), detection.rect, detection.prob);
 			elements.push_back(element);
 		}
 		catch(const cv::Exception& ex)
@@ -659,6 +657,11 @@ std::string Circut::getYoloLabels() const
 		ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.rows)<<'\n';
 	}
 	return ss.str();
+}
+
+const std::vector<Element*>& Circut::getElements() const
+{
+	return elements;
 }
 
 DirectionHint Circut::estimateDirection()

@@ -75,7 +75,7 @@ bool Document::saveElementLabels(const std::filesystem::path& folder) const
 	for(size_t i = 0; i < circuts.size(); ++i)
 	{
 		const Circut& circut = circuts[i];
-		if(circut.elements.empty())
+		if(circut.getElements().empty())
 			continue;
 		std::filesystem::path path = folder /
 			std::filesystem::path(basename + "_" +
@@ -120,7 +120,7 @@ bool Document::saveCircutImages(const std::filesystem::path& folder) const
 	for(size_t i = 0; i < circuts.size(); ++i)
 	{
 		const Circut& circut = circuts[i];
-		if(circut.elements.empty())
+		if(circut.getElements().empty())
 			continue;
 		std::filesystem::path path = folder /
 			std::filesystem::path(basename + "_" +
@@ -255,7 +255,7 @@ void Document::removeEmptyCircuts()
 {
 	for(size_t i = 0; i < circuts.size(); ++i)
 	{
-		if(circuts[i].elements.size() < 2)
+		if(circuts[i].getElements().size() < 2)
 		{
 			circuts.erase(circuts.begin()+i);
 			--i;

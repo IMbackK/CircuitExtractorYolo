@@ -25,8 +25,6 @@ private:
 	cv::Rect rect;
 	float prob;
 	std::string string;
-
-public:
 	cv::Mat image;
 
 private:
@@ -35,11 +33,12 @@ private:
 	static ElementType typeFromChar(char c);
 
 public:
-	Element(ElementType type = E_TYPE_UNKOWN, cv::Rect rect = cv::Rect(), float prob = 1);
+	Element(ElementType type = E_TYPE_UNKOWN, cv::Mat image = cv::Mat(), cv::Rect rect = cv::Rect(), float prob = 1);
 	Element(const Element& a, const Element& b, bool serial = true);
 	ElementType getType() const;
 	cv::Rect getRect() const;
 	cv::Point center() const;
 	double getProb() const;
 	std::string getString() const;
+	const cv::Mat getImage() const;
 };
