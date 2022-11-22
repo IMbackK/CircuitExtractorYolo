@@ -15,6 +15,7 @@ private:
 	std::vector<Element*> elements;
 	cv::Rect rect;
 	std::vector<Net> nets;
+	size_t pagenum;
 
 public:
 
@@ -41,8 +42,9 @@ private:
 public:
 	Circut() = default;
 	Circut(const Circut& in);
-	Circut(cv::Mat imageI, float probI, cv::Rect rectI);
+	Circut(cv::Mat image, float prob, cv::Rect rect, size_t pagenum = 0);
 	Circut operator=(const Circut& in);
+	~Circut();
 	cv::Mat ciructImage() const;
 	cv::Mat plainCircutImage() const;
 	void detectElements(Yolo5* yolo);
@@ -51,9 +53,11 @@ public:
 	void detectNets();
 	bool parseCircut();
 	void dropImage();
+	cv::Rect getRect() const;
 	std::string getString();
 	std::string getSummary();
-	std::string getYoloLabels() const;
-	~Circut();
+	std::string getYoloElementLabels() const;
+	size_t getPagenum() const {return pagenum;}
+	void setPagenum(size_t pagenumI) {pagenum = pagenumI;}
 	DirectionHint estimateDirection();
 };

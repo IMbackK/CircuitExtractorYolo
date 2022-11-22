@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <fstream>
+#include <sstream>
 
 #include "log.h"
 
@@ -449,4 +450,13 @@ std::vector<std::string> loadFileLines(const std::filesystem::path& path)
 		lines.push_back(str);
 	}
 	return lines;
+}
+
+std::string yoloLabelsFromRect(const cv::Rect& rect, const cv::Mat& image, int label)
+{
+	std::stringstream ss;
+	ss<<label;
+	ss<<' '<<(static_cast<double>(rect.x+rect.width/2)/image.cols)<<' '<<(static_cast<double>(rect.y+rect.height/2)/image.rows);
+	ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.rows)<<'\n';
+	return ss.str();
 }

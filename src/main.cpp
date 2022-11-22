@@ -45,8 +45,10 @@ static bool save(std::shared_ptr<Document> document, const Config config)
 		int ret = 0;
 		if(config.outputCircut)
 			ret += document->saveCircutImages(config.outDir/"circuts");
+		if(config.outputCircutLabels)
+			ret += document->saveCircutLabels(config.outDir/"circutLabels");
 		if(config.outputElementLabels)
-			ret += document->saveElementLabels(config.outDir/"elements");
+			ret += document->saveElementLabels(config.outDir/"elementLabels");
 		if(config.outputSummaries)
 			ret += document->saveDatafile(config.outDir/"summaries");
 		if(ret != config.outputCircut + config.outputSummaries + config.outputElementLabels)

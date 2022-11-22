@@ -177,7 +177,7 @@ void algoElement(cv::Mat& image)
 			Log(Log::ERROR)<<"Could not open file "<<labelPath<<" for writeing";
 			return;
 		}
-		file<<circut.getYoloLabels();
+		file<<circut.getYoloElementLabels();
 		file.close();
 		Log(Log::INFO)<<"Wrote labels to "<<labelPath;
 	}

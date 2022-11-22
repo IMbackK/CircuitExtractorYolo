@@ -14,12 +14,15 @@
 #include "linedetection.h"
 #include "tokenize.h"
 
-std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo, std::vector<float>* probs, std::vector<cv::Rect>* rects)
+std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo,
+								   std::vector<float>* probs, std::vector<cv::Rect>* rects,
+								   std::vector<size_t>* imageNums)
 {
 	std::vector<cv::Mat> circuts;
 
-	for(cv::Mat& image : images)
+	for(size_t i = 0; i < images.size(); ++i)
 	{
+		cv::Mat& image = images[i];
 		std::vector<Yolo5::DetectedClass> detections = yolo->detect(image);
 		cv::Mat visulization;
 
@@ -35,6 +38,8 @@ std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo, std
 					probs->push_back(detection.prob);
 				if(rects)
 					rects->push_back(detection.rect);
+				if(imageNums)
+					imageNums->push_back(i);
 			}
 			catch(const cv::Exception& ex)
 			{
@@ -94,7 +99,7 @@ bool Document::saveElementLabels(const std::filesystem::path& folder) const
 				Log(Log::ERROR)<<"Could not open file "<<labelPath<<" for writeing";
 				return false;
 			}
-			file<<circut.getYoloLabels();
+			file<<circut.getYoloElementLabels();
 			file.close();
 			Log(Log::INFO)<<"Wrote labels to "<<labelPath;
 		}
@@ -102,6 +107,52 @@ bool Document::saveElementLabels(const std::filesystem::path& folder) const
 		{
 			Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
 			return false;
+		}
+	}
+	return true;
+}
+
+bool Document::saveCircutLabels(const std::filesystem::path& folder) const
+{
+	if(!std::filesystem::is_directory(folder))
+	{
+		if(!std::filesystem::create_directory(folder))
+		{
+			Log(Log::ERROR)<<folder<<" is not a valid directory and no directory could be created at this location";
+			return false;
+		}
+	}
+
+	for(size_t i = 0; i < pages.size(); ++i)
+	{
+		if(circutsOnPage(i) > 0)
+		{
+			std::filesystem::path path = folder /
+				std::filesystem::path(basename + "_" +
+				std::to_string(i) + ".png");
+
+			try
+			{
+				cv::imwrite(path, pages[i]);
+
+				std::fstream file;
+				std::filesystem::path labelPath = path;
+				labelPath.replace_extension(".txt");
+				file.open(labelPath, std::ios_base::out);
+				if(!file.is_open())
+				{
+					Log(Log::ERROR)<<"Could not open file "<<labelPath<<" for writeing";
+					return false;
+				}
+				file<<getYoloCircutLabels(i);
+				file.close();
+				Log(Log::INFO)<<"Wrote Circut labels to "<<labelPath;
+			}
+			catch(const cv::Exception& ex)
+			{
+				Log(Log::ERROR)<<"Cant write "<<path<<' '<<ex.what();
+				return false;
+			}
 		}
 	}
 	return true;
@@ -176,13 +227,14 @@ bool Document::process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo)
 {
 	std::vector<float> probs;
 	std::vector<cv::Rect> rects;
+	std::vector<size_t> pageNums;
 	if(pages.empty())
 		return false;
-	std::vector<cv::Mat> circutImages = getYoloImages(pages, circutYolo, &probs, &rects);
+	std::vector<cv::Mat> circutImages = getYoloImages(pages, circutYolo, &probs, &rects, &pageNums);
 
 	for(size_t i = 0; i < circutImages.size(); ++i)
 	{
-		Circut circut(extendBorder(circutImages[i], 10), probs[i], rects[i]);
+		Circut circut(extendBorder(circutImages[i], 10), probs[i], rects[i], pageNums[i]);
 		circut.detectElements(elementYolo);
 		circut.detectNets();
 		DirectionHint hint = circut.estimateDirection();
@@ -324,4 +376,26 @@ const Document::Metadata Document::getMetadata() const
 std::string Document::getBasename() const
 {
 	return basename;
+}
+
+size_t Document::circutsOnPage(size_t page) const
+{
+	size_t ret = 0;
+	for(const Circut& circut : circuts)
+	{
+		if(circut.getPagenum() == page)
+			++ret;
+	}
+	return ret;
+}
+
+std::string Document::getYoloCircutLabels(size_t page) const
+{
+	std::stringstream ss;
+	for(const Circut& circut : circuts)
+	{
+		if(circut.getPagenum() == page)
+			ss<<yoloLabelsFromRect(circut.getRect(), pages[page], 0);
+	}
+	return ss.str();
 }

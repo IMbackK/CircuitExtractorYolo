@@ -40,6 +40,7 @@ public:
 
 	bool process(Yolo5* circutYolo, Yolo5* elementYolo, Yolo5* graphYolo);
 	bool saveCircutImages(const std::filesystem::path& folder) const;
+	bool saveCircutLabels(const std::filesystem::path& folder) const;
 	bool saveElementLabels(const std::filesystem::path& folder) const;
 	bool saveDatafile(const std::filesystem::path& folder);
 	void print(Log::Level level) const;
@@ -47,9 +48,13 @@ public:
 
 	std::string getBasename() const;
 	std::string getField() const;
+	std::string getYoloCircutLabels(size_t page) const;
+	size_t circutsOnPage(size_t page) const;
 	const Metadata getMetadata() const;
 	std::vector<std::string> getText();
 };
 
 std::vector<cv::Mat> getYoloImages(std::vector<cv::Mat> images, Yolo5* yolo,
-										std::vector<float>* probs = nullptr, std::vector<cv::Rect>* rects = nullptr);
+								std::vector<float>* probs = nullptr,
+								std::vector<cv::Rect>* rects = nullptr,
+								std::vector<size_t>* imageNums = nullptr);

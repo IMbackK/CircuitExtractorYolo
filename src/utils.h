@@ -65,3 +65,5 @@ cv::Mat getMatPlane4d(cv::Mat& in, int plane);
 cv::Mat extendBorder(cv::Mat& in, int borderSize);
 
 std::pair<double, double> getRectXYPaddingPercents(DirectionHint hint, double tolleranceFactor);
+
+std::string yoloLabelsFromRect(const cv::Rect& rect, const cv::Mat& image, int label);

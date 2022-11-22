@@ -20,6 +20,7 @@ Circut::Circut(const Circut& in)
 	image = in.image;
 	nets = in.nets;
 	dirHint = in.dirHint;
+	pagenum = in.pagenum;
 
 	elements.resize(in.elements.size(), nullptr);
 	for(size_t i = 0; i < elements.size(); ++i)
@@ -31,13 +32,19 @@ Circut Circut::operator=(const Circut& in)
 	return Circut(in);
 }
 
-Circut::Circut(cv::Mat imageI, float probI, cv::Rect rectI): image(imageI), prob(probI), rect(rectI)
+Circut::Circut(cv::Mat imageI, float probI, cv::Rect rectI, size_t pagenumI):
+image(imageI), prob(probI), rect(rectI), pagenum(pagenumI)
 {
 }
 
 cv::Mat Circut::plainCircutImage() const
 {
 	return image;
+}
+
+cv::Rect Circut::getRect() const
+{
+	return rect;
 }
 
 cv::Mat Circut::ciructImage() const
@@ -646,16 +653,11 @@ std::string Circut::getSummary()
 	return ss.str();
 }
 
-std::string Circut::getYoloLabels() const
+std::string Circut::getYoloElementLabels() const
 {
 	std::stringstream ss;
 	for(const Element* element : elements)
-	{
-		const cv::Rect rect = element->getRect();
-		ss<<static_cast<int>(element->getType());
-		ss<<' '<<(static_cast<double>(rect.x+rect.width/2)/image.cols)<<' '<<(static_cast<double>(rect.y+rect.height/2)/image.rows);
-		ss<<' '<<(static_cast<double>(rect.width)/image.cols)<<' '<<(static_cast<double>(rect.height)/image.rows)<<'\n';
-	}
+		ss<<yoloLabelsFromRect(element->getRect(), image, static_cast<int>(element->getType()));
 	return ss.str();
 }
 

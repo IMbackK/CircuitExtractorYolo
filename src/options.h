@@ -21,6 +21,7 @@ static struct argp_option options[] =
   {"out-dir",			'o', "[DIRECTORY]",	0,	"Place to save output" },
   {"circut-images",		'i', 0,				0,	"Save annotated images of the found circuts"},
   {"element-labels",	'y', 0,				0,	"save element labels"},
+  {"circut-labels",		'l', 0,				0,	"save circut labels"},
   {"document-summaries",'s', 0,				0,	"Save document summaries"},
   {"statistics", 		't', 0,				0,	"Save statistics"},
   {"words", 			'w', "[FILE]",		0,	"Dictionary of words to use for baysen paper catigorization"},
@@ -37,6 +38,7 @@ struct Config
 	std::filesystem::path wordFileName;
 	std::filesystem::path outDir;
 	std::vector<std::filesystem::path> paths;
+	bool outputCircutLabels = false;
 	bool outputCircut = false;
 	bool outputElementLabels = false;
 	bool outputSummaries = false;
@@ -62,13 +64,16 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
 		config->elementNetworkFileName.assign(arg);
 	break;
 	case 'g':
-		config->elementNetworkFileName.assign(arg);
+		config->graphNetworkFileName.assign(arg);
 	break;
 	case 'o':
 		config->outDir.assign(arg);
 	break;
 	case 'i':
 		config->outputCircut = true;
+		break;
+	case 'l':
+		config->outputCircutLabels = true;
 		break;
 	case 's':
 		config->outputSummaries = true;
