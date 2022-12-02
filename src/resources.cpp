@@ -4,10 +4,10 @@
 #include "incbin.h"
 #include <sstream>
 
-INCBIN(CircutNetwork, "../data/networks/circut/640/best.onnx");
-INCBIN(ElementNetwork, "../data/networks/element/640/best.onnx");
-INCBIN(GraphNetwork, "../data/networks/graph/1280/best.onnx");
-INCTXT(Dictionary, "../data/top1000words.txt");
+INCBIN(CircutNetwork, "../CircutExtractorYoloData/networks/circut/640/best.onnx");
+INCBIN(ElementNetwork, "../CircutExtractorYoloData/networks/element/640/best.onnx");
+INCBIN(GraphNetwork, "../CircutExtractorYoloData/networks/graph/1280/best.onnx");
+INCTXT(Dictionary, "../CircutExtractorYoloData/top1000words.txt");
 
 const char* res::circutNetwork(size_t& size)
 {
