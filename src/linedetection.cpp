@@ -12,7 +12,7 @@
 
 static constexpr double SCALE_FACTOR = 2.0;
 
-static constexpr double ORTHO_TRESH = 0.08;
+static constexpr double ORTHO_TRESH = 0.16;
 
 std::pair<cv::Point2i, cv::Point2i> lineToPoints(const cv::Vec4f& line)
 {
