@@ -5,6 +5,7 @@
 
 #include "randomgen.h"
 #include "utils.h"
+#include "log.h"
 
 Net::Net()
 {
@@ -35,6 +36,17 @@ void Net::draw(cv::Mat& image, const cv::Scalar* color) const
 
 	for(const cv::Point2i& point : nodes)
 		cv::circle(image, point, 5, colorFinal, 1);
+}
+
+size_t Net::indexOfEndpoint(const cv::Point2i& point)
+{
+	for(size_t i = 0; i < endpoints.size(); ++i)
+	{
+		if(endpoints[i] == point)
+			return i;
+	}
+	assert(false);
+	return 0;
 }
 
 bool Net::pointIsFree(const cv::Point2i& point, const size_t ignore, double tollerance)
@@ -96,6 +108,16 @@ void Net::coordScale(double factor)
 	}
 }
 
+double Net::closestEndpointDist(const cv::Point2i& point)
+{
+	assert(endpoints.size() > 0);
+	std::vector<double> dists;
+	dists.reserve(endpoints.size());
+	for(const cv::Point2i& endpoint : endpoints)
+		dists.push_back(pointDist(endpoint, point));
+	return *std::min(dists.begin(), dists.end());
+}
+
 bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFactor)
 {
 	std::pair<double, double> padding = getRectXYPaddingPercents(hint, tolleranceFactor);
@@ -114,6 +136,23 @@ bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFact
 	return false;
 }
 
+bool Net::removeElement(Element* element)
+{
+	auto iter = std::find(elements.begin(), elements.end(), element);
+
+	if(iter != elements.end())
+	{
+		size_t index = iter-elements.begin();
+		elements.erase(iter);
+		connectedEndpointIndecies.erase(connectedEndpointIndecies.begin()+index);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 cv::Rect Net::endpointRect() const
 {
 	int left = std::numeric_limits<int>::max();
@@ -129,6 +168,88 @@ cv::Rect Net::endpointRect() const
 		bottom = endpoints[i].y > bottom ? endpoints[i].y : bottom;
 	}
 	return cv::Rect(left, top, right-left, bottom-top);
+}
+
+std::vector<cv::Point2i> Net::unconnectedEndPoints() const
+{
+	std::vector<cv::Point2i> out;
+	for(size_t i = 0; i < endpoints.size(); ++i)
+	{
+		if(std::find(connectedEndpointIndecies.begin(), connectedEndpointIndecies.end(), i) == connectedEndpointIndecies.end())
+			out.push_back(endpoints[i]);
+	}
+	return out;
+}
+
+bool Net::mergeNet(Net& out, Net& net, double endpointTollerance,
+				   DirectionHint hint, const cv::Point2i ignore) const
+{
+	out = *this;
+	out.lines.insert(out.lines.end(), net.lines.begin(), net.lines.end());
+	out.nodes.insert(out.nodes.end(), net.nodes.begin(), net.nodes.end());
+
+	std::vector<Element*> joinedElements = out.elements;
+	joinedElements.insert(joinedElements.end(), net.elements.begin(), net.elements.end());
+	for(size_t i = 0; i < joinedElements.size(); ++i)
+	{
+		for(size_t j = 0; j < joinedElements.size(); ++j)
+		{
+			if(i == j)
+				continue;
+			if(joinedElements[i] == joinedElements[j])
+			{
+				joinedElements.erase(joinedElements.begin()+j);
+				--i;
+				break;
+			}
+		}
+	}
+
+	std::vector<cv::Point2i> unconnectedEpA = out.unconnectedEndPoints();
+	std::vector<cv::Point2i> unconnectedEpB = net.unconnectedEndPoints();
+
+	bool merged = false;
+	for(size_t i = 0; i < unconnectedEpA.size(); ++i)
+	{
+		if(unconnectedEpA[i] == ignore)
+			continue;
+		for(size_t j = 0; j < unconnectedEpB.size(); ++j)
+		{
+			if(unconnectedEpB[i] == ignore)
+				continue;
+			if(pointDist(unconnectedEpA[i], unconnectedEpB[j]) < endpointTollerance)
+			{
+				out.nodes.push_back(unconnectedEpA[i]);
+				size_t indexA = out.indexOfEndpoint(unconnectedEpA[i]);
+				size_t indexB = net.indexOfEndpoint(unconnectedEpB[j]);
+				out.endpoints.erase(out.endpoints.begin()+indexA);
+				net.endpoints.erase(net.endpoints.begin()+indexB);
+				unconnectedEpA.erase(unconnectedEpA.begin()+i);
+				unconnectedEpB.erase(unconnectedEpB.begin()+j);
+				--i;
+				merged = true;
+				break;
+			}
+		}
+	}
+
+	if(!merged)
+	{
+		Log(Log::WARN)<<"Unable to merge nets, no overlaping unconnected endpoints";
+		return false;
+	}
+
+	out.endpoints.insert(out.endpoints.end(), net.endpoints.begin(), net.endpoints.end());
+	out.elements.clear();
+	for(Element* element : joinedElements)
+	{
+		bool ret = out.addElement(element, hint);
+		if(!ret)
+			Log(Log::WARN)<<"Unable to re-add element "<<element->getString()<<" at "
+			<<element->getRect().x<<'x'<<element->getRect().y;
+	}
+
+	return true;
 }
 
 cv::Point Net::center() const

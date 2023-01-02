@@ -35,9 +35,12 @@ private:
 	void removeUnconnectedNets();
 	void removeNestedElements();
 	bool healDanglingElement(Element* element);
+	bool healDanglingNet(Net& net);
+	std::vector<Net*> healOverconnectedElement(Element* element, std::vector<Net*> ajdacentNets);
 	uint64_t getStartingNetId(DirectionHint hint) const;
 	uint64_t getEndingNetId(DirectionHint hint) const;
 	std::vector<Net*> getElementAdjacentNets(const Element* const element);
+
 
 public:
 	Circut() = default;

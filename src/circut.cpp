@@ -137,8 +137,7 @@ bool Circut::moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::V
 	bool ret = false;
 	for(size_t j = 0; j < lines.size();)
 	{
-
-		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance))
+		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance*2))
 		{
 			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"\t"<<lines[j]<<" matches";
 			net.lines.push_back(lines[j]);
@@ -168,7 +167,7 @@ std::vector<Net> Circut::sortLinesIntoNets(std::vector<cv::Vec4f> lines, double 
 	while(!lines.empty())
 	{
 		Net net;
-		Log(Log::SUPERDEBUG)<<"---NEW NET---";
+		Log(Log::SUPERDEBUG)<<"---NEW NET "<<net.getId()<<" ---";
 		net.lines.push_back(*lines.begin());
 		lines.erase(lines.begin());
 		while(moveConnectedLinesIntoNet(net, net.lines.size()-1, lines, tollerance));
@@ -186,11 +185,12 @@ void Circut::detectNets()
 	for(const Element* element : elements)
 		clipLinesAgainstRect(lines, element->getRect());
 
-	nets = sortLinesIntoNets(lines, std::max(image.rows/15.0, 5.0));
-
+	double tollerance = std::max(image.rows/15.0, 5.0);
+	nets = sortLinesIntoNets(lines, tollerance);
+	Log(Log::DEBUG)<<__func__<<"using tollerance: "<<tollerance;
 	for(Net& net : nets)
 	{
-		net.computePoints(std::max(image.rows/15.0, 5.0));
+		net.computePoints(tollerance);
 	}
 }
 
@@ -535,6 +535,22 @@ bool Circut::parseCircut()
 	uint64_t startingNetId = getStartingNetId(dirHint);
 	uint64_t endingNetId = getEndingNetId(dirHint);
 
+	for(size_t i = 0; i < nets.size(); ++i)
+	{
+		std::vector<cv::Point2i> unconnected = nets[i].unconnectedEndPoints();
+		if(unconnected.size() > 0 && nets[i].getId() != startingNetId && nets[i].getId() != endingNetId)
+		{
+			Log(Log::WARN)<<"Net "<<i<<" id:"<<nets[i].getId()<<
+				" has too many unconnected endpoints, trying to heal";
+			Log(Log::DEBUG)<<"Unconnected endpoints:";
+			for(const cv::Point2i& point : unconnected)
+				Log(Log::DEBUG)<<point;
+
+			if(healDanglingNet(nets[i]))
+				--i;
+		}
+	}
+
 	bool dangling = false;
 	for(size_t i = 0; i < elements.size(); ++i)
 	{
@@ -549,6 +565,8 @@ bool Circut::parseCircut()
 
 		if(ajdacentNets.size() == 0)
 		{
+			Log(Log::WARN)<<"Deleteing wholy unconnected element "
+				<<elements[i]->getString()<<" at "<<elements[i]->getRect().x<<'x'<<elements[i]->getRect().y;
 			delete elements[i];
 			elements.erase(elements.begin()+i);
 			--i;
@@ -556,6 +574,10 @@ bool Circut::parseCircut()
 		else if(ajdacentNets.size() == 1)
 		{
 			dangling |= !healDanglingElement(elements[i]);
+		}
+		else if(ajdacentNets.size() > 2)
+		{
+			ajdacentNets = healOverconnectedElement(elements[i], ajdacentNets);
 		}
 	}
 
@@ -576,6 +598,125 @@ bool Circut::parseCircut()
 	}
 
 	return true;
+}
+
+bool Circut::healDanglingNet(Net& net)
+{
+	const double tollerance = std::max(image.rows/10.0, 10.0);
+	std::vector<cv::Point2i> unconnectedEndPoints = net.unconnectedEndPoints();
+
+	double minDist = std::numeric_limits<double>::max();
+	ssize_t index = -1;
+	for(size_t i = 0; i < nets.size(); ++i)
+	{
+		if(nets[i] == net)
+			continue;
+		for(const cv::Point2i& endpoint : unconnectedEndPoints)
+		{
+			double distance = nets[i].closestEndpointDist(endpoint);
+			Log(Log::WARN)<<__func__<<endpoint<<" d:"<<distance;
+			if(minDist > distance)
+			{
+				index = i;
+				minDist = distance;
+			}
+		}
+	}
+
+	if(index < 0 || tollerance < minDist)
+		return false;
+
+	Net joinedNet;
+	bool ret = net.mergeNet(joinedNet, nets[index], tollerance, dirHint);
+	if(ret)
+	{
+		net = joinedNet;
+		nets.erase(nets.begin()+index);
+	}
+
+	return ret;
+}
+
+std::vector<Net*> Circut::healOverconnectedElement(Element* element, std::vector<Net*> ajdacentNets)
+{
+	assert(ajdacentNets.size() > 2);
+
+	cv::Rect rect = element->getRect();
+
+	Log(Log::WARN)<<"Element "<<element->getString()
+	<<" at "<<rect.x<<'x'<<rect.y<<" has too manny connected nets, trying to heal";
+
+	std::vector<double> aDists;
+	std::vector<double> bDists;
+	cv::Point2i pa;
+	cv::Point2i pb;
+
+	aDists.reserve(ajdacentNets.size());
+	bDists.reserve(ajdacentNets.size());
+
+	if(dirHint == C_DIRECTION_UNKOWN || dirHint == C_DIRECTION_HORIZ)
+	{
+		pa = cv::Point2i(rect.x, rect.y+rect.height/2);
+		pb = cv::Point2i(rect.x+rect.width, rect.y+rect.height/2);
+	}
+	else
+	{
+		pa = cv::Point2i(rect.x+rect.width/2, rect.y);
+		pb = cv::Point2i(rect.x+rect.width/2, rect.y+rect.height);
+	}
+
+	for(Net* net : ajdacentNets)
+	{
+		aDists.push_back(net->closestEndpointDist(pa));
+		bDists.push_back(net->closestEndpointDist(pb));
+	}
+
+	double aMin = std::numeric_limits<double>::max();
+	double bMin = std::numeric_limits<double>::max();
+	size_t aIndex = 0;
+	size_t bIndex = 0;
+	for(size_t k = 0; k < aDists.size(); ++k)
+	{
+		if(aDists[k] < aMin && bDists[k] >= bMin)
+		{
+			aIndex = k;
+			aMin = aDists[k];
+		}
+		else if(aDists[k] >= aMin && bDists[k] < bMin)
+		{
+			bIndex = k;
+			bMin = bDists[k];
+		}
+		else if(aDists[k] < aMin && bDists[k] < bMin)
+		{
+			if(aDists[k] < bDists[k])
+			{
+				if(bDists[aIndex] < bMin)
+				{
+					bIndex = aIndex;
+					bMin = bDists[aIndex];
+				}
+				aIndex = k;
+				aMin = aDists[k];
+			}
+			else
+			{
+				bIndex = k;
+				bMin = bDists[k];
+			}
+		}
+	}
+
+	for(size_t j = 0; j < ajdacentNets.size(); ++j)
+	{
+		if(j != aIndex && j != bIndex)
+		{
+			bool ret = ajdacentNets[j]->removeElement(element);
+			assert(ret);
+		}
+	}
+
+	return getElementAdjacentNets(element);
 }
 
 std::string Circut::getString()
