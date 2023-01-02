@@ -34,6 +34,7 @@ typedef enum
 	ALGO_NET,
 	ALGO_GRAPH,
 	ALGO_COUNT,
+	ALGO_NETS_DIR,
 	ALGO_POPPLER
 } Algo;
 
@@ -71,6 +72,8 @@ Algo parseAlgo(const std::string& in)
 			out = ALGO_POPPLER;
 		else if(in == "elementcrops")
 			out = ALGO_ELEMENT_CROPS;
+		else if(in == "dir")
+			out = ALGO_NETS_DIR;
 		else
 			out = ALGO_INVALID;
 	}
@@ -209,7 +212,7 @@ void algoLine(cv::Mat& image)
 
 	std::string modelString = circut.getString();
 
-	if(Log::level == Log::SUPERDEBUG)
+	if(Log::level == Log::DEBUG || Log::level == Log::SUPERDEBUG)
 	{
 		cv::imshow("Viewer", circut.ciructImage());
 		cv::waitKey(0);
@@ -350,6 +353,20 @@ void documentPipeline(const std::vector<std::filesystem::path>& files, size_t st
 	}
 }
 
+static void algoNetsDir(const std::filesystem::path& path)
+{
+	std::vector<std::filesystem::path> files = toFilePaths({path});
+	Log::level = Log::DEBUG;
+
+	for(size_t i = 0; i < files.size(); ++i)
+	{
+		cv::Mat image = cv::imread(files[i]);
+		if(!image.data)
+			continue;
+		algoLine(image);
+	}
+}
+
 static void altAlgoPoppler(const std::filesystem::path& path)
 {
 	std::vector<std::filesystem::path> files = toFilePaths({path});
@@ -434,7 +451,7 @@ int main(int argc, char** argv)
 
 	cv::Mat image;
 
-	if(algo != ALGO_POPPLER)
+	if(algo != ALGO_POPPLER && algo != ALGO_NETS_DIR)
 	{
 		image = cv::imread(argv[2]);
 		if(!image.data)
@@ -469,6 +486,9 @@ int main(int argc, char** argv)
 			break;
 		case ALGO_POPPLER:
 			altAlgoPoppler(argv[2]);
+			break;
+		case ALGO_NETS_DIR:
+			algoNetsDir(argv[2]);
 			break;
 		case ALGO_INVALID:
 		default:
