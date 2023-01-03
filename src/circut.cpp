@@ -604,15 +604,22 @@ bool Circut::parseCircut()
 			elements.erase(elements.begin()+i);
 			--i;
 		}
-		else if(ajdacentNets.size() == 1)
-		{
-			dangling |= !healDanglingElement(elements[i]);
-		}
 		else if(ajdacentNets.size() > 2)
 		{
 			ajdacentNets = healOverconnectedElement(elements[i], ajdacentNets);
 		}
 	}
+
+	for(size_t i = 0; i < elements.size(); ++i)
+	{
+		std::vector<Net*> ajdacentNets = getElementAdjacentNets(elements[i]);
+		if(ajdacentNets.size() == 1)
+		{
+			dangling |= !healDanglingElement(elements[i]);
+		}
+	}
+
+	removeUnconnectedNets();
 
 	if(elements.empty())
 	{
