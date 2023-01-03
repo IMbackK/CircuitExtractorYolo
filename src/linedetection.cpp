@@ -12,7 +12,7 @@
 
 static constexpr double SCALE_FACTOR = 2.0;
 
-static constexpr double ORTHO_TRESH = 0.16;
+static constexpr double ORTHO_TRESH = 0.12;
 
 std::pair<cv::Point2i, cv::Point2i> lineToPoints(const cv::Vec4f& line)
 {
@@ -269,7 +269,7 @@ std::vector<cv::Vec4f> lineDetect(cv::Mat in)
 	cv::cvtColor(in, work, cv::COLOR_BGR2GRAY);
 	cv::resize(work, work, cv::Size(), SCALE_FACTOR, SCALE_FACTOR, cv::INTER_LINEAR);
 	work.convertTo(work, CV_8U, 1);
-	cv::threshold(work, work, 2*std::numeric_limits<uint8_t>::max()/3, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
+	cv::threshold(work, work, 200, std::numeric_limits<uint8_t>::max(), cv::THRESH_BINARY);
 	cv::bitwise_not(work, work);
 	thinning(work, work, THINNING_ZHANGSUEN);
 
