@@ -17,7 +17,7 @@ std::string Element::getString() const
 		case E_TYPE_SOURCE:
 			return "s";
 		case E_TYPE_NODE:
-			return "";
+			return "*";
 		case E_TYPE_COMPOSIT:
 			return string.empty() ? "x" : string;
 		case E_TYPE_UNKOWN:
