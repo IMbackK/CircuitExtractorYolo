@@ -56,7 +56,14 @@ bool Net::pointIsFree(const cv::Point2i& point, const size_t ignore, double toll
 	{
 		if(ignore == j)
 			continue;
-		if(pointIsOnLine(point, lines[j], tollerance))
+		const cv::Point2i start(lines[j][0], lines[j][1]);
+		const cv::Point2i end(lines[j][2], lines[j][3]);
+		double lineLength = pointDist(start, end);
+		double localTollerance = tollerance;
+		if(lineLength < tollerance*0.8)
+			localTollerance = lineLength/4;
+
+		if(pointIsOnLine(point, lines[j], localTollerance))
 		{
 			freePoint = false;
 			break;
@@ -72,17 +79,23 @@ void Net::computePoints(double tollerance)
 		const cv::Point2i start(lines[i][0], lines[i][1]);
 		const cv::Point2i end(lines[i][2], lines[i][3]);
 
-		if(pointIsFree(start, i, tollerance))
+		double lineLength = pointDist(start, end);
+		double localTollerance = tollerance;
+		if(lineLength < tollerance*0.8)
+			localTollerance = lineLength/4;
+
+		if(pointIsFree(start, i, localTollerance/2))
 			endpoints.push_back(start);
 		else
 			nodes.push_back(start);
-		if(pointIsFree(end, i, tollerance))
+		if(pointIsFree(end, i, localTollerance/2))
 			endpoints.push_back(end);
 		else
 			nodes.push_back(end);
 	}
 
 	deduplicatePoints(nodes, tollerance);
+	deduplicatePoints(endpoints, tollerance);
 }
 
 void Net::coordScale(double factor)
@@ -118,8 +131,16 @@ double Net::closestEndpointDist(const cv::Point2i& point)
 	return *std::min(dists.begin(), dists.end());
 }
 
-bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFactor)
+bool Net::hasElement(Element* element)
 {
+	return std::find(elements.begin(), elements.end(), element) != elements.end();
+}
+
+bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFactor, bool tryNodes)
+{
+	if(hasElement(element))
+		return true;
+
 	std::pair<double, double> padding = getRectXYPaddingPercents(hint, tolleranceFactor);
 	cv::Rect paddedRect = padRect(element->getRect(), padding.first, padding.second, 5*tolleranceFactor);
 
@@ -133,6 +154,12 @@ bool Net::addElement(Element* element, DirectionHint hint, double tolleranceFact
 			return true;
 		}
 	}
+
+	if(tryNodes)
+	{
+
+	}
+
 	return false;
 }
 
