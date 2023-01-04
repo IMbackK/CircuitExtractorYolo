@@ -56,6 +56,7 @@ public:
 	void detectNets();
 	bool parseCircut();
 	void dropImage();
+	void removeUnparsableElements();
 	cv::Rect getRect() const;
 	std::string getString();
 	std::string getSummary();

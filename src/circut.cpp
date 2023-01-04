@@ -105,6 +105,12 @@ void Circut::detectElements(Yolo5* yolo)
 		try
 		{
 			Element* element = new Element(static_cast<ElementType>(detection.classId), image(detection.rect), detection.rect, detection.prob);
+			Log(Log::DEBUG)<<"Got element "<<element->getString();
+			if(element->getType() == E_TYPE_SOURCE || element->getType() == E_TYPE_UNKOWN || element->getType() == E_TYPE_NODE)
+			{
+				Log(Log::DEBUG)<<"Ignoreing";
+				continue;
+			}
 			elements.push_back(element);
 		}
 		catch(const cv::Exception& ex)
@@ -137,7 +143,7 @@ bool Circut::moveConnectedLinesIntoNet(Net& net, size_t index, std::vector<cv::V
 	bool ret = false;
 	for(size_t j = 0; j < lines.size();)
 	{
-		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance*2))
+		if(lineCrossesOrtho(net.lines[index], lines[j], tollerance))
 		{
 			Log(Log::SUPERDEBUG)<<"Checking for "<<index<<": "<<net.lines[index]<<"\t"<<lines[j]<<" matches";
 			net.lines.push_back(lines[j]);
@@ -535,6 +541,8 @@ bool Circut::parseCircut()
 	uint64_t startingNetId = getStartingNetId(dirHint);
 	uint64_t endingNetId = getEndingNetId(dirHint);
 
+	Log(Log::DEBUG)<<"starting net: "<<startingNetId<<" ending net: "<<endingNetId;
+
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
 		std::vector<cv::Point2i> unconnected = nets[i].unconnectedEndPoints();
@@ -562,6 +570,11 @@ bool Circut::parseCircut()
 		if(std::find(ajdacentNets.begin(), ajdacentNets.end(), netFromId(nets, endingNetId)) != ajdacentNets.end())
 			Log(Log::DEBUG, false)<<" includes last net";
 		Log(Log::DEBUG, false)<<'\n';
+
+		for(Net* net : ajdacentNets)
+		{
+			Log(Log::DEBUG)<<net->getId();
+		}
 
 		if(ajdacentNets.size() == 0)
 		{

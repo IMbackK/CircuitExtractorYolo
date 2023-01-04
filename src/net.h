@@ -29,8 +29,9 @@ public:
 	void coordScale(double factor);
 	bool mergeNet(Net& out, Net& net, double endpointTollerance,
 				  DirectionHint hint = C_DIRECTION_UNKOWN, const cv::Point2i ignore = cv::Point2i(-1, -1)) const;
-	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN, double tolleranceFactor = 1.0);
+	bool addElement(Element* element, DirectionHint hint = C_DIRECTION_UNKOWN, double tolleranceFactor = 1.0, bool tryNodes = false);
 	bool removeElement(Element* element);
+	bool hasElement(Element* element);
 	double closestEndpointDist(const cv::Point2i& point);
 	std::vector<cv::Point2i> unconnectedEndPoints() const;
 	cv::Rect endpointRect() const;
