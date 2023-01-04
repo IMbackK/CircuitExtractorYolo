@@ -35,6 +35,7 @@ private:
 	void removeUnconnectedNets();
 	void removeNestedElements();
 	bool healDanglingElement(Element* element);
+	bool healAdjacentDanglingElement(Element* element, bool multiWay);
 	bool healDanglingNet(Net& net);
 	std::vector<Net*> healOverconnectedElement(Element* element, std::vector<Net*> ajdacentNets);
 	uint64_t getStartingNetId(DirectionHint hint) const;

@@ -13,6 +13,11 @@
 #include "utils.h"
 #include "linedetection.h"
 
+static bool pairCompare(const std::pair<double, size_t> a, const std::pair<double, size_t> b)
+{
+	return a.first < b.first;
+}
+
 Circut::Circut(const Circut& in)
 {
 	model = in.model;
@@ -345,8 +350,58 @@ bool Circut::colapseSerial(std::vector<Net>& netsL, std::vector<Element*>& joine
 	return false;
 }
 
+bool Circut::healAdjacentDanglingElement(Element* element, bool multiWay)
+{
+	auto padding = getRectXYPaddingPercents(dirHint, 1);
+	cv::Rect rect = padRect(element->getRect(), padding.first, padding.second, 2);
+	std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
+	bool horiz = (dirHint == C_DIRECTION_HORIZ || dirHint == C_DIRECTION_UNKOWN);
+
+	for(Element* elementTest : elements)
+	{
+		if(element == elementTest)
+			continue;
+
+		if(!multiWay && getElementAdjacentNets(elementTest).size() > 1)
+			continue;
+
+		bool found = false;
+		for(const Element* elementOnAjdecentNet : ajdacentNets[0]->elements)
+		{
+			if(elementTest == elementOnAjdecentNet)
+			{
+				found = true;
+				break;
+			}
+		}
+		if(found)
+			continue;
+
+		cv::Rect rectTest = padRect(elementTest->getRect(), padding.first, padding.second, 2);
+
+		if(rectsIntersect(rect, rectTest))
+		{
+			if((horiz && ((rect.x >= rectTest.x && rect.x <= rectTest.x+rect.width) ||
+				(rect.x+rect.width >= rectTest.x && rect.x+rect.width <= rectTest.x+rect.width))) ||
+				(!horiz && ((rect.y >= rectTest.y && rect.y <= rectTest.y+rect.height) ||
+				(rect.y+rect.height >= rectTest.y && rect.y+rect.height <= rectTest.y+rect.height))))
+			{
+				Log(Log::INFO)<<"joining adjecent dangling elements with new net";
+				nets.push_back(Net(element->center(), elementTest->center()));
+				nets.back().addElement(element);
+				nets.back().addElement(elementTest);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool Circut::healDanglingElement(Element* element)
 {
+	Log(Log::WARN)<<"Element "<<element->getString()
+	<<" at "<<rect.x<<'x'<<rect.y<<" is dangling, trying to heal";
 	Net* startingNet = netFromId(nets, getStartingNetId(dirHint));
 	Net* endingNet = netFromId(nets, getEndingNetId(dirHint));
 	std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
@@ -411,45 +466,10 @@ bool Circut::healDanglingElement(Element* element)
 	}
 	else
 	{
-		auto padding = getRectXYPaddingPercents(dirHint, 1);
-		cv::Rect rect = padRect(element->getRect(), padding.first, padding.second, 2);
-
-		for(Element* elementTest : elements)
-		{
-			if(element == elementTest)
-				continue;
-
-			if(getElementAdjacentNets(elementTest).size() > 1)
-				continue;
-
-			bool found = false;
-			for(const Element* elementOnAjdecentNet : ajdacentNets[0]->elements)
-			{
-				if(elementTest == elementOnAjdecentNet)
-				{
-					found = true;
-					break;
-				}
-			}
-			if(found)
-				continue;
-
-			cv::Rect rectTest = padRect(elementTest->getRect(), padding.first, padding.second, 2);
-
-			if(rectsIntersect(rect, rectTest))
-			{
-				if((horiz && ((rect.x >= rectTest.x && rect.x <= rectTest.x+rect.width) ||
-					(rect.x+rect.width >= rectTest.x && rect.x+rect.width <= rectTest.x+rect.width))) ||
-					(!horiz && ((rect.y >= rectTest.y && rect.y <= rectTest.y+rect.height) ||
-					(rect.y+rect.height >= rectTest.y && rect.y+rect.height <= rectTest.y+rect.height))))
-				{
-					Log(Log::INFO)<<"joining adjecent dangling elements with new net";
-					nets.push_back(Net(element->center(), elementTest->center()));
-					nets.back().addElement(element);
-					nets.back().addElement(elementTest);
-				}
-			}
-		}
+		bool ret = healAdjacentDanglingElement(element, false);
+		if(!ret)
+			ret = healAdjacentDanglingElement(element, true);
+		return ret;
 	}
 
 	return false;
@@ -659,8 +679,8 @@ std::vector<Net*> Circut::healOverconnectedElement(Element* element, std::vector
 	Log(Log::WARN)<<"Element "<<element->getString()
 	<<" at "<<rect.x<<'x'<<rect.y<<" has too manny connected nets, trying to heal";
 
-	std::vector<double> aDists;
-	std::vector<double> bDists;
+	std::vector<std::pair<double, size_t>> aDists;
+	std::vector<std::pair<double, size_t>> bDists;
 	cv::Point2i pa;
 	cv::Point2i pb;
 
@@ -678,47 +698,35 @@ std::vector<Net*> Circut::healOverconnectedElement(Element* element, std::vector
 		pb = cv::Point2i(rect.x+rect.width/2, rect.y+rect.height);
 	}
 
-	for(Net* net : ajdacentNets)
+	Log(Log::SUPERDEBUG)<<"Using endpoints "<<pa<<' '<<pb;
+
+	for(size_t i = 0; i < ajdacentNets.size(); ++i)
 	{
-		aDists.push_back(net->closestEndpointDist(pa));
-		bDists.push_back(net->closestEndpointDist(pb));
+		for(const cv::Point2i& point : ajdacentNets[i]->endpoints)
+		{
+			Log(Log::SUPERDEBUG)<<point<<" : "<<i;
+		}
+		aDists.push_back({ajdacentNets[i]->closestEndpointDist(pa), i});
+		bDists.push_back({ajdacentNets[i]->closestEndpointDist(pb), i});
 	}
 
-	double aMin = std::numeric_limits<double>::max();
-	double bMin = std::numeric_limits<double>::max();
-	size_t aIndex = 0;
-	size_t bIndex = 0;
-	for(size_t k = 0; k < aDists.size(); ++k)
+	std::sort(aDists.begin(), aDists.end(), pairCompare);
+	std::sort(bDists.begin(), bDists.end(), pairCompare);
+
+	Log(Log::SUPERDEBUG)<<"aDists";
+	for(const std::pair<double, size_t>& dist : aDists)
 	{
-		if(aDists[k] < aMin && bDists[k] >= bMin)
-		{
-			aIndex = k;
-			aMin = aDists[k];
-		}
-		else if(aDists[k] >= aMin && bDists[k] < bMin)
-		{
-			bIndex = k;
-			bMin = bDists[k];
-		}
-		else if(aDists[k] < aMin && bDists[k] < bMin)
-		{
-			if(aDists[k] < bDists[k])
-			{
-				if(bDists[aIndex] < bMin)
-				{
-					bIndex = aIndex;
-					bMin = bDists[aIndex];
-				}
-				aIndex = k;
-				aMin = aDists[k];
-			}
-			else
-			{
-				bIndex = k;
-				bMin = bDists[k];
-			}
-		}
+		Log(Log::SUPERDEBUG)<<dist.first<<" : "<<dist.second;
 	}
+
+	Log(Log::SUPERDEBUG)<<"bDists";
+	for(const std::pair<double, size_t>& dist : bDists)
+	{
+		Log(Log::SUPERDEBUG)<<dist.first<<" : "<<dist.second;
+	}
+
+	size_t aIndex = aDists[0].second;
+	size_t bIndex = bDists[0].second == aDists[0].second ? bDists[1].second : bDists[0].second;
 
 	for(size_t j = 0; j < ajdacentNets.size(); ++j)
 	{

@@ -128,7 +128,7 @@ double Net::closestEndpointDist(const cv::Point2i& point)
 	dists.reserve(endpoints.size());
 	for(const cv::Point2i& endpoint : endpoints)
 		dists.push_back(pointDist(endpoint, point));
-	return *std::min(dists.begin(), dists.end());
+	return *std::min_element(dists.begin(), dists.end());;
 }
 
 bool Net::hasElement(Element* element)
