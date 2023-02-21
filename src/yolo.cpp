@@ -32,7 +32,7 @@ Yolo5::Yolo5(size_t networkDataSize, const char* networkData, size_t numCassesI,
 numClasses(numCassesI), trainSizeX(trainSizeXIn), trainSizeY(trainSizeYIn)
 {
 	dimensions = 5+numClasses;
-	Log(Log::INFO, false)<<"Reading net from internal buffer";
+	Log(Log::INFO, false)<<"Reading net from internal buffer ";
 	net = cv::dnn::readNetFromONNX(networkData, networkDataSize);
 	Log(Log::INFO)<<"compleated";
 	net.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
@@ -137,7 +137,7 @@ std::vector<Yolo5::DetectedClass> Yolo5::detect(const cv::Mat& image)
 	net.setInput(blob);
 
 	std::vector<cv::Mat> outputs;
-    net.forward(outputs, net.getUnconnectedOutLayersNames());
+	net.forward(outputs, net.getUnconnectedOutLayersNames());
 
 	for(size_t i = 0; i < outputs.size(); ++i)
 		outputs[i] = getMatPlane(outputs[i], 0);

@@ -86,7 +86,8 @@ void algoCircut(cv::Mat& image)
 	const char* data = res::circutNetwork(length);
 	Yolo5* yolo = new Yolo5(length, data, 1, 640, 640);
 
-	std::vector<cv::Mat> images({image});
+	std::vector<cv::Mat> images;
+	images.push_back(image);
 	std::vector<cv::Mat> detections = getYoloImages(images, yolo);
 
 	delete yolo;
