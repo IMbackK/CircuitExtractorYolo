@@ -39,7 +39,7 @@ private:
 	bool healDanglingNet(Net& net);
 	std::vector<Net*> healOverconnectedElement(Element* element, std::vector<Net*> ajdacentNets);
 	uint64_t getStartingNetId(DirectionHint hint) const;
-	uint64_t getEndingNetId(DirectionHint hint) const;
+	uint64_t getEndingNetId(DirectionHint hint, uint64_t ignoreNet) const;
 	std::vector<Net*> getElementAdjacentNets(const Element* const element);
 
 

@@ -68,7 +68,7 @@ cv::Mat Circut::ciructImage() const
 	}
 
 	uint64_t firstNetId = getStartingNetId(C_DIRECTION_UNKOWN);
-	uint64_t lastNetId = getEndingNetId(C_DIRECTION_UNKOWN);
+	uint64_t lastNetId = getEndingNetId(C_DIRECTION_UNKOWN, firstNetId);
 
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
@@ -242,7 +242,7 @@ uint64_t Circut::getStartingNetId(DirectionHint hint) const
 
 }
 
-uint64_t Circut::getEndingNetId(DirectionHint hint) const
+uint64_t Circut::getEndingNetId(DirectionHint hint, uint64_t ignoreNet) const
 {
 	if(nets.empty())
 		return 0;
@@ -251,6 +251,8 @@ uint64_t Circut::getEndingNetId(DirectionHint hint) const
 	int rightMostPoint = 0;
 	for(size_t i = 0; i < nets.size(); ++i)
 	{
+		if(nets[i].getId() == ignoreNet)
+			continue;
 		cv::Rect rect = nets[i].endpointRect();
 		if((hint == C_DIRECTION_HORIZ || hint == C_DIRECTION_UNKOWN) && rect.x+rect.width > rightMostPoint)
 		{
@@ -403,7 +405,7 @@ bool Circut::healDanglingElement(Element* element)
 	Log(Log::WARN)<<"Element "<<element->getString()
 	<<" at "<<rect.x<<'x'<<rect.y<<" is dangling, trying to heal";
 	Net* startingNet = netFromId(nets, getStartingNetId(dirHint));
-	Net* endingNet = netFromId(nets, getEndingNetId(dirHint));
+	Net* endingNet = netFromId(nets, getEndingNetId(dirHint, startingNet->getId()));
 	std::vector<Net*> ajdacentNets = getElementAdjacentNets(element);
 
 	bool horiz = (dirHint == C_DIRECTION_HORIZ || dirHint == C_DIRECTION_UNKOWN);
@@ -559,7 +561,7 @@ bool Circut::parseCircut()
 	removeUnconnectedNets();
 
 	uint64_t startingNetId = getStartingNetId(dirHint);
-	uint64_t endingNetId = getEndingNetId(dirHint);
+	uint64_t endingNetId = getEndingNetId(dirHint, startingNetId);
 
 	Log(Log::DEBUG)<<"starting net: "<<startingNetId<<" ending net: "<<endingNetId;
 
@@ -765,7 +767,7 @@ std::string Circut::getString()
 		return model;
 
 	uint64_t startingNetId = getStartingNetId(dirHint);
-	uint64_t endingNetId = getEndingNetId(dirHint);
+	uint64_t endingNetId = getEndingNetId(dirHint, startingNetId);
 
 	std::string str;
 	std::vector<Net> netsTmp = nets;
