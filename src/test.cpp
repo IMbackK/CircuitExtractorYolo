@@ -41,7 +41,7 @@ typedef enum
 void printUsage(int argc, char** argv)
 {
 	Log(Log::INFO)<<"Usage: "<<argv[0]<<" [ALGO] [IMAGEFILENAME]";
-	Log(Log::INFO)<<"Valid algos: circut, element, elementcrops, net, graph";
+	Log(Log::INFO)<<"Valid algos: circuit, element, elementcrops, net, graph";
 }
 
 Algo parseAlgo(const std::string& in)
@@ -60,7 +60,7 @@ Algo parseAlgo(const std::string& in)
 	}
 	catch(const std::invalid_argument& ex)
 	{
-		if(in == "circut")
+		if(in == "circuit")
 			out = ALGO_CIRCUT;
 		else if(in == "element")
 			out = ALGO_ELEMENT;
